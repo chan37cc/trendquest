@@ -990,7 +990,7 @@
 
         // 管理員白名單:填入你的 Firebase UID(Firebase Console → Authentication → 使用者 → UID 欄位)
         // 管理員可無限次重測題目、對已關卷題目測試;管理員的投票不列入計分與全球統計
-        const ADMIN_UIDS = ['PASTE_YOUR_UID_HERE'];
+        const ADMIN_UIDS = ['Rr23IajbQIXSsClmruro9edXma23'];
         function isAdminUser() {
             return !!(auth?.currentUser && ADMIN_UIDS.includes(auth.currentUser.uid));
         }
