@@ -1,0 +1,2774 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrendQuest - 每日盤面測驗 (雲端連線版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Noto Sans TC', 'sans-serif']
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        },
+                        bull: '#10b981', // 極光綠 (專業做多)
+                        bear: '#f43f5e', // 霓虹洋紅 (專業做空)
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(130% 100% at top left, #f8fafc 20%, #e2e8f0 70%, #cbd5e1 100%);
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.05);
+        }
+        .glow-button-bull {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glow-button-bull:hover {
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+        }
+        .glow-button-bear {
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glow-button-bear:hover {
+            box-shadow: 0 0 25px rgba(244, 63, 94, 0.6);
+            transform: translateY(-2px);
+        }
+        .achievement-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .achievement-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(14, 165, 233, 0.3);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(14, 165, 233, 0.6);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased font-sans pb-12">
+
+    <div id="firebase-status-banner" class="bg-indigo-600 text-white text-[11px] font-bold text-center py-1.5 px-4 flex justify-center items-center space-x-2">
+        <i class="fa-solid fa-wifi"></i>
+        <span id="firebase-status-text">正在偵測雲端連線狀態...</span>
+    </div>
+
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-brand-600 to-indigo-500 text-white p-2.5 rounded-2xl shadow-md flex items-center justify-center">
+                    <i class="fa-solid fa-chart-line text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-black bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">TrendQuest</span>
+                    <span id="current-global-phase-badge" class="hidden sm:inline-block text-[10px] ml-2 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold">賽季載入中…</span>
+                </div>
+            </div>
+
+            <div id="user-navbar-section" class="flex items-center space-x-4">
+                <button onclick="openAchievementsModal()" class="flex items-center px-4 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50 text-xs font-bold transition">
+                    <i class="fa-solid fa-trophy mr-2 text-amber-500 animate-bounce"></i>成就中心
+                </button>
+
+                <div id="guest-buttons" class="flex items-center space-x-2">
+                    <button onclick="openAuthModal('login')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">登入</button>
+                    <button onclick="openAuthModal('register')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 transition">註冊帳號</button>
+                </div>
+
+                <div id="user-profile-widget" class="hidden flex items-center space-x-3 bg-slate-100/80 px-3 py-1.5 rounded-full cursor-pointer hover:bg-slate-200 border border-slate-200/50 transition" onclick="toggleProfilePanel()">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold" id="user-avatar-initial">U</div>
+                    <div class="text-left hidden sm:block">
+                        <span class="text-xs font-bold block leading-tight text-slate-700" id="user-display-nickname">玩家</span>
+                        <span class="text-[10px] text-brand-600 font-bold" id="user-display-score">🔥 0 PTS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="profilePanel" class="hidden fixed inset-y-0 right-0 z-50 w-full max-w-sm glass-panel border-l border-slate-200/80 shadow-2xl flex flex-col transition-all duration-300 transform translate-x-full">
+        <div class="p-6 border-b flex justify-between items-center bg-slate-50/50">
+            <h2 class="font-black text-lg flex items-center"><i class="fa-solid fa-circle-user mr-2 text-brand-600"></i>交易員分析儀表板</h2>
+            <button onclick="toggleProfilePanel()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto space-y-6">
+            <div class="bg-gradient-to-tr from-brand-50 to-indigo-50 p-5 rounded-2xl border border-brand-100">
+                <div class="flex items-center space-x-4 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-lg font-bold" id="panel-avatar">U</div>
+                    <div>
+                        <h3 class="font-black text-base" id="panel-nickname">超級交易員</h3>
+                        <p class="text-xs text-slate-400" id="panel-email">test@example.com</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-center mt-2">
+                    <div class="bg-white/80 p-2.5 rounded-xl border border-slate-100">
+                        <p class="text-[10px] text-slate-400 font-bold">歷史總累積積分</p>
+                        <p class="text-base font-black text-slate-700" id="panel-score">0 PTS</p>
+                    </div>
+                    <div class="bg-white/80 p-2.5 rounded-xl border border-slate-100">
+                        <p class="text-[10px] text-slate-400 font-bold">解鎖最高頭銜</p>
+                        <p class="text-xs font-black text-brand-600" id="panel-title">韭菜新手</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-gradient-to-tr from-amber-500/10 via-indigo-500/5 to-indigo-500/10 border border-amber-300/60 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 translate-x-3 -translate-y-3 opacity-10 text-6xl pointer-events-none">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-black text-amber-700 uppercase tracking-widest flex items-center">
+                        <i class="fa-solid fa-award mr-1.5 text-amber-500"></i> 當前賽季成績
+                    </h4>
+                    <span id="panel-season-badge" class="text-[9px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full">賽季載入中…</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本階段累積積分</p>
+                        <p class="text-lg font-black text-amber-600" id="panel-phase-score">0 PTS</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本階段估計排名</p>
+                        <p class="text-lg font-black text-indigo-600" id="panel-phase-rank">第 1 名</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本賽季預測戰績</p>
+                        <p class="text-xs font-black text-slate-700 mt-1">
+                            <span class="text-emerald-500" id="panel-phase-wins">0 W</span> / <span class="text-rose-500" id="panel-phase-losses">0 L</span>
+                        </p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本階段預測勝率</p>
+                        <p class="text-sm font-black text-emerald-600 mt-0.5" id="panel-phase-winrate">0.0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center">
+                    <i class="fa-solid fa-chart-pie mr-1.5 text-indigo-500"></i> 歷史戰績統計數據
+                </h4>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">總測驗次數</p>
+                        <p class="text-lg font-black text-slate-700 mt-0.5" id="panel-games-count">0 次</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">歷史勝敗總計</p>
+                        <p class="text-xs font-black text-slate-700 mt-1">
+                            <span class="text-emerald-500" id="panel-wins">0 W</span> / <span class="text-rose-500" id="panel-losses">0 L</span>
+                        </p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">歷史預測總勝率</p>
+                        <p class="text-lg font-black text-emerald-600 mt-0.5" id="panel-winrate">0.0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">答題總參與率</p>
+                        <p class="text-lg font-black text-indigo-600 mt-0.5" id="panel-part-rate">0.0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150 col-span-2">
+                        <p class="text-[9px] text-slate-400 font-bold mb-2">持倉方向勝場分佈</p>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <div class="bg-emerald-50/50 p-2 rounded-xl border border-emerald-100">
+                                <span class="text-emerald-700 font-bold block text-[9px]">做多成功</span>
+                                <span id="panel-bull-wins" class="font-black text-slate-700 text-xs">0</span>
+                            </div>
+                            <div class="bg-rose-50/50 p-2 rounded-xl border border-rose-100">
+                                <span class="text-rose-700 font-bold block text-[9px]">做空成功</span>
+                                <span id="panel-bear-wins" class="font-black text-slate-700 text-xs">0</span>
+                            </div>
+                            <div class="bg-slate-100 p-2 rounded-xl border border-slate-200">
+                                <span class="text-slate-600 font-bold block text-[9px]">觀望成功</span>
+                                <span id="panel-neutral-wins" class="font-black text-slate-700 text-xs">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150 col-span-2">
+                        <p class="text-[9px] text-slate-400 font-bold mb-2">各大商品實戰成功捷報</p>
+                        <div class="grid grid-cols-2 gap-2 text-center text-xs">
+                            <div class="bg-amber-50/50 p-2 rounded-xl border border-amber-100">
+                                <span class="text-amber-700 font-bold block text-[9px]">💰 黃金現貨</span>
+                                <span id="panel-gold-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                            <div class="bg-orange-50/50 p-2 rounded-xl border border-orange-100">
+                                <span class="text-orange-700 font-bold block text-[9px]">🪙 比特幣</span>
+                                <span id="panel-btc-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                            <div class="bg-blue-50/50 p-2 rounded-xl border border-blue-100">
+                                <span class="text-blue-700 font-bold block text-[9px]">📈 納斯達克</span>
+                                <span id="panel-nasdaq-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                            <div class="bg-red-50/50 p-2 rounded-xl border border-red-100">
+                                <span class="text-red-700 font-bold block text-[9px]">📊 道瓊</span>
+                                <span id="panel-dow-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">目前連續勝/敗</p>
+                        <p class="text-xs font-black text-slate-700 mt-1"><span class="text-emerald-500" id="panel-streak">0 🔥</span> / <span class="text-rose-500" id="panel-lossstreak">0 💀</span></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">留言被讚次數</p>
+                        <p class="text-lg font-black text-amber-500 mt-0.5"><span id="panel-likes">0</span> <i class="fa-regular fa-thumbs-up text-xs"></i></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t bg-slate-50/50">
+            <button onclick="logout()" class="w-full py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl font-bold text-xs transition flex items-center justify-center">
+                <i class="fa-solid fa-right-from-bracket mr-2"></i>登出帳號
+            </button>
+        </div>
+    </div>
+
+    <div id="achievementsModal" class="hidden fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl h-[85vh] rounded-3xl p-6 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <div>
+                    <h2 class="text-2xl font-black bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">🏆 交易成就與稱號中心</h2>
+                </div>
+                <button onclick="document.getElementById('achievementsModal').classList.add('hidden')" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="flex space-x-2 mb-4 flex-wrap gap-y-2">
+                <button onclick="filterAchievements('all')" id="btn-ach-all" class="px-4 py-2 rounded-xl text-xs font-black bg-indigo-50 text-indigo-600 border border-indigo-100">全部成就 (<span id="total-ach-count">0</span>)</button>
+                <button onclick="filterAchievements('points')" id="btn-ach-points" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">積分成就</button>
+                <button onclick="filterAchievements('streak')" id="btn-ach-streak" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">連續成就</button>
+                <button onclick="filterAchievements('rank')" id="btn-ach-rank" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">排行成就</button>
+                <button onclick="filterAchievements('claimed')" id="btn-ach-claimed" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">已領取</button>
+            </div>
+
+            <div id="ach-list" class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
+                <!-- Achievements injected dynamically via JS -->
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <nav class="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3 overflow-x-auto">
+            <button id="tab-game" onclick="switchPage('game')" class="whitespace-nowrap px-4 py-2 rounded-xl text-sm font-black bg-brand-600 text-white shadow-sm transition"><i class="fa-solid fa-chart-simple mr-1.5"></i>挑戰盤面</button>
+            <button id="tab-announcements" onclick="switchPage('announcements')" class="whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition"><i class="fa-solid fa-bullhorn mr-1.5"></i>版主公告</button>
+            <button id="tab-forum" onclick="switchPage('forum')" class="whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition"><i class="fa-solid fa-comments mr-1.5"></i>留言板</button>
+        </nav>
+
+        <div id="page-game">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-8 space-y-6">
+                <!-- 今日挑戰完成畫面 -->
+                <div id="daily-complete" class="hidden glass-panel rounded-3xl p-8 text-center">
+                    <div class="text-5xl mb-3">🎉</div>
+                    <h2 class="text-2xl font-black text-slate-800">今日挑戰已完成</h2>
+                    <p class="text-sm text-slate-400 mt-1">成績如下</p>
+                    <div id="daily-complete-stats" class="mt-6 flex items-center justify-center gap-6"></div>
+                    <div id="daily-complete-list" class="mt-6 max-w-md mx-auto space-y-2 text-left"></div>
+                    <p class="mt-8 text-sm font-bold text-indigo-600"><i class="fa-regular fa-clock mr-1.5"></i>題目將於 00:00 更新</p>
+                </div>
+
+                <!-- Main K-Line Card -->
+                <div id="challenge-card" class="glass-panel rounded-3xl p-6 relative overflow-hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><i class="fa-solid fa-circle-nodes text-lg"></i></span>
+                            <div>
+                                <span id="challenge-time" class="text-xs text-brand-600 font-bold block">12:00 盤勢挑戰</span>
+                                <span id="challenge-symbol" class="font-black text-slate-800 text-lg">黃金現貨 (XAU/USD)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl border border-slate-200/50 self-end sm:self-auto">
+                            <button onclick="switchTimeframe('15m')" id="btn-tf-15m" class="px-4 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">15m</button>
+                            <button onclick="switchTimeframe('1H')" id="btn-tf-1H" class="px-4 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800">1H (1小時)</button>
+                        </div>
+                    </div>
+
+                    <!-- K Line Canvas with Mask overlay -->
+                    <div class="relative w-full aspect-[16/10] bg-[#fafbfc] rounded-2xl border border-slate-200/60 overflow-hidden shadow-inner">
+                        <canvas id="klineCanvas" class="w-full h-full block"></canvas>
+                        
+                        <div class="absolute top-4 left-4 bg-slate-950/5 text-slate-400 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider select-none">
+                            真實歷史行情 · OANDA / CME / Binance 數據源
+                        </div>
+
+                        <div id="chartMask" class="absolute top-0 right-0 h-full bg-slate-900/10 backdrop-blur-md border-l border-brand-500/30 flex flex-col items-center justify-center transition-all duration-700 ease-out z-10" style="left: 50%;">
+                            <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(#000 20%, transparent 20%); background-size: 10px 10px;"></div>
+                            <div class="bg-slate-900/80 text-white p-3 rounded-2xl shadow-xl flex flex-col items-center max-w-[92%] text-center border border-slate-700/50 animate-pulse mx-1">
+                                <i class="fa-solid fa-eye-slash text-xl text-amber-400 mb-1.5"></i>
+                                <h3 id="mask-title" class="font-bold text-xs leading-tight">未來 3 根 K 棒已隱藏</h3>
+                                <p id="mask-desc" class="text-[9px] text-slate-300 mt-1 leading-tight">真實歷史盤面盲測,切換 15m / 1H 雙視角分析後做出決策!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-slate-400 mt-2 text-right italic"><i class="fa-solid fa-circle-info mr-1"></i>所有盤面皆為真實歷史行情快照（黃金採 OANDA 現貨 XAU/USD 報價，與 TradingView 顯示一致）</p>
+
+                    <div id="poll-container" class="mt-6">
+                        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest text-center mb-1">現在這個位置，你會怎麼做？</h4>
+                        <p class="text-[10px] text-slate-400 text-center mb-4">判定基準：<span class="font-bold text-indigo-500">15 分 K 未來 3 根</span>的方向（1H 為輔助分析視角）· 每期僅能決策一次</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <button onclick="handleVote('bull')" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-bull font-bold flex flex-col items-center justify-center glow-button-bull transition">
+                                <i class="fa-solid fa-circle-arrow-up text-2xl mb-1"></i>
+                                <span class="text-sm">做多 (Bullish)</span>
+                                <span class="text-[10px] font-normal text-emerald-600 mt-1">預期後續大漲勝出</span>
+                            </button>
+                            <button onclick="handleVote('bear')" class="p-4 rounded-2xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-bear font-bold flex flex-col items-center justify-center glow-button-bear transition">
+                                <i class="fa-solid fa-circle-arrow-down text-2xl mb-1"></i>
+                                <span class="text-sm">做空 (Bearish)</span>
+                                <span class="text-[10px] font-normal text-rose-600 mt-1">預期後續大跌勝出</span>
+                            </button>
+                            <button onclick="handleVote('neutral')" class="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 font-bold flex flex-col items-center justify-center hover:translate-y-[-2px] transition shadow-sm">
+                                <i class="fa-solid fa-circle-minus text-2xl mb-1 text-slate-400"></i>
+                                <span class="text-sm">不進場 (Neutral)</span>
+                                <span class="text-[10px] font-normal text-slate-400 mt-1">預期橫盤或離場觀望</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="result-container" class="hidden mt-6 p-5 bg-gradient-to-tr from-slate-50 to-indigo-50/30 rounded-2xl border border-slate-200">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                            <div>
+                                <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase">結算報告</span>
+                                <h4 class="font-black text-lg text-slate-800 mt-1">解密：被隱藏的 3 根真實 K 棒</h4>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button id="admin-retest-btn" onclick="adminRetest()" class="hidden text-xs bg-slate-900 text-white hover:bg-slate-700 font-bold px-4 py-2 rounded-xl flex items-center transition shadow-sm">
+                                    <i class="fa-solid fa-wrench mr-1.5"></i> 管理員重測
+                                </button>
+                                <span id="source-time-badge" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 font-bold px-4 py-2 rounded-xl flex items-center shadow-sm">📅 出題時間揭曉中...</span>
+                            </div>
+                        </div>
+
+                        <div id="outcome-alert" class="p-4 rounded-xl mb-4 font-bold flex items-center text-sm"></div>
+
+                        <div class="space-y-3">
+                            <span class="text-xs font-black text-slate-400">全球交易員投票比例</span>
+                            <div class="space-y-2">
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1">
+                                        <span class="text-emerald-600">做多 (Bull)</span>
+                                        <span id="ratio-bull-lbl">0%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div id="ratio-bull-bar" class="bg-emerald-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1">
+                                        <span class="text-rose-600">做空 (Bear)</span>
+                                        <span id="ratio-bear-lbl">0%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div id="ratio-bear-bar" class="bg-rose-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1">
+                                        <span class="text-slate-500">不進場 (Neutral)</span>
+                                        <span id="ratio-neutral-lbl">0%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div id="ratio-neutral-bar" class="bg-slate-400 h-full transition-all duration-1000" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="next-question-btn" onclick="goNextQuestion()" class="hidden w-full mt-5 py-3 rounded-xl bg-brand-600 text-white text-sm font-black hover:bg-brand-700 transition shadow-md">下一題 <i class="fa-solid fa-arrow-right ml-1"></i></button>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-3xl p-6 relative overflow-hidden">
+                    <h3 class="font-black text-base flex items-center mb-4 text-slate-800">
+                        <i class="fa-solid fa-comments mr-2 text-brand-600"></i>決策者討論區 (留言板)
+                    </h3>
+
+                    <!-- Comments Locked Overlay (Blind-test style) -->
+                    <div id="comments-locked-overlay" class="absolute inset-0 bg-white/95 backdrop-blur-md z-20 flex flex-col items-center justify-center text-center p-6">
+                        <div class="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-500 mb-3 animate-bounce">
+                            <i class="fa-solid fa-lock text-2xl"></i>
+                        </div>
+                        <h4 class="font-black text-sm text-slate-700">想觀看其他交易員的犀利評論？</h4>
+                        <p class="text-[11px] text-slate-400 mt-1 max-w-sm">請先完成本次「做多 / 做空 / 不進場」的決策投票。投票後即可無縫解鎖、瀏覽並對精準觀點給予讚同！</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <form onsubmit="postComment(event)" class="bg-slate-50 p-4 rounded-2xl border flex flex-col gap-3">
+                            <textarea id="comment-text-input" rows="3" placeholder="說說你的看盤分析邏輯吧，例如：1H級別出現主力吸籌，EMA形成金叉向上..." required class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"></textarea>
+                            <button type="submit" class="self-end px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition">發布專業解析</button>
+                        </form>
+
+                        <div id="comments-list" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 space-y-6">
+                <!-- 今日六題 -->
+                <div class="glass-panel rounded-3xl p-6">
+                    <h3 class="font-black text-base flex items-center mb-1"><i class="fa-solid fa-list-check mr-2 text-indigo-600"></i>今日六題挑戰</h3>
+                    <p id="daily-progress-label" class="text-[11px] text-slate-400 mb-4">—</p>
+                    <div id="period-list" class="space-y-2">
+                        <div class="text-center text-slate-400 text-xs py-6">載入中…</div>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-3xl p-6">
+                    <div class="flex flex-col mb-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-black text-base flex items-center"><i class="fa-solid fa-ranking-star mr-2 text-amber-500"></i>神預測傳奇排行榜</h3>
+                            <button id="player-count-toggle-btn" onclick="togglePlayerCountVisibility()" class="hidden text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition items-center gap-1">
+                                <i class="fa-solid fa-eye mr-1"></i><span id="player-count-toggle-label">對玩家顯示中</span>
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">🕒 賽制週期：每半月結算一次（每月 1–15、16 至月底 各結算一次）</p>
+                    </div>
+
+                    <div id="player-count-card" class="hidden mb-3 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-tr from-indigo-50 to-brand-50 border border-indigo-100">
+                        <i class="fa-solid fa-users text-indigo-500 text-sm"></i>
+                        <span class="text-xs font-bold text-slate-600">已登錄玩家</span>
+                        <span id="player-count-number" class="text-base font-black text-indigo-600">—</span>
+                        <span class="text-xs font-bold text-slate-500">人</span>
+                        <span id="player-count-admin-note" class="hidden text-[9px] text-amber-600 font-bold ml-1">（目前對玩家隱藏）</span>
+                    </div>
+
+                    <button id="manage-players-btn" onclick="openPlayerManager()" class="hidden w-full mb-3 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold hover:bg-slate-900 transition"><i class="fa-solid fa-users-gear mr-1.5"></i>管理玩家帳號</button>
+
+                    <div class="flex space-x-2 p-1 bg-slate-100 rounded-xl border border-slate-200/50 mb-3 text-xs">
+                        <button onclick="switchLeaderboardMode('phase')" id="btn-lb-phase" class="flex-1 py-1.5 font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">本階段累積</button>
+                        <button onclick="switchLeaderboardMode('total')" id="btn-lb-total" class="flex-1 py-1.5 font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800">歷史總累積</button>
+                    </div>
+
+                    <div id="leaderboard-container" class="space-y-3">
+                        <!-- Rankings dynamic loading -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div><!-- /page-game -->
+
+        <!-- 版主公告頁 -->
+        <div id="page-announcements" class="hidden">
+            <div class="glass-panel rounded-3xl p-6 max-w-3xl mx-auto">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-xl font-black flex items-center"><i class="fa-solid fa-bullhorn mr-2 text-indigo-500"></i>版主公告</h2>
+                    <button id="ann-new-btn" onclick="openAnnouncementEditor()" class="hidden px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition"><i class="fa-solid fa-plus mr-1"></i>新增公告</button>
+                </div>
+                <div id="announcements-list" class="space-y-4">
+                    <div class="text-center text-slate-400 text-sm py-12">載入中…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 留言板頁 -->
+        <div id="page-forum" class="hidden">
+            <div class="max-w-3xl mx-auto space-y-5">
+                <div class="glass-panel rounded-3xl p-5">
+                    <h2 class="text-lg font-black flex items-center mb-3"><i class="fa-solid fa-comments mr-2 text-brand-600"></i>交易員留言板</h2>
+                    <textarea id="forum-new-post" rows="3" placeholder="分享你的看法、發起討論…" class="w-full p-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white"></textarea>
+                    <div class="flex justify-end mt-2">
+                        <button onclick="submitForumPost()" class="px-5 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 transition"><i class="fa-solid fa-paper-plane mr-1"></i>發表貼文</button>
+                    </div>
+                </div>
+                <div id="forum-list" class="space-y-3">
+                    <div class="text-center text-slate-400 text-sm py-12">載入中…</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 公告編輯彈窗(管理員專用) -->
+    <div id="announcementModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl relative border">
+            <h3 id="ann-editor-title" class="font-black text-lg text-slate-800 mb-4">新增公告</h3>
+            <input id="ann-input-title" type="text" placeholder="公告標題" class="w-full p-3 rounded-xl border border-slate-200 text-sm mb-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+            <textarea id="ann-input-content" rows="6" placeholder="公告內容…" class="w-full p-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+            <div class="flex gap-2 mt-4">
+                <button onclick="closeAnnouncementModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition">取消</button>
+                <button onclick="saveAnnouncement()" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-md">發布</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理玩家帳號(管理員專用) -->
+    <div id="playerManageModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-black text-lg text-slate-800"><i class="fa-solid fa-users-gear mr-2 text-slate-600"></i>管理玩家帳號</h3>
+                <button onclick="closePlayerManager()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <p class="text-[11px] text-slate-400 mb-3">點右側垃圾桶可刪除該玩家的遊戲資料(排行榜/積分/戰績)。</p>
+            <div id="player-manage-list" class="space-y-2 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
+
+    <!-- 留言串彈窗(點主題跳出) -->
+    <div id="forumThreadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl relative border max-h-[85vh] flex flex-col">
+            <button onclick="closeThread()" class="absolute top-3.5 right-4 text-slate-400 hover:text-slate-600 z-10"><i class="fa-solid fa-times text-lg"></i></button>
+            <div id="forum-thread-content" class="overflow-y-auto pr-1"></div>
+        </div>
+    </div>
+
+    <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border">
+            <div class="flex border-b mb-6">
+                <button onclick="switchAuthTab('login')" id="tab-login" class="flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600">登入帳戶</button>
+                <button onclick="switchAuthTab('register')" id="tab-register" class="flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600">快速註冊</button>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">登入信箱 (Email)</label>
+                    <input type="text" id="auth-account" required placeholder="請輸入註冊信箱" class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div id="register-fields" class="hidden space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">公開玩家暱稱</label>
+                        <input type="text" id="auth-nickname" placeholder="例如: 幣市奇異博士" class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">密碼 (Password)</label>
+                    <input type="password" id="auth-password" required placeholder="請輸入安全密碼" class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div id="auth-error-msg" class="hidden p-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold"></div>
+
+                <button type="submit" class="w-full py-3 bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md hover:from-brand-700 hover:to-indigo-700 transition">確定送出</button>
+            </form>
+
+            <button onclick="document.getElementById('authModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times"></i></button>
+        </div>
+    </div>
+
+    <!-- 投票當下:留下見解(被按讚可累積積分) -->
+    <div id="voteCommentModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border">
+            <div class="flex items-center mb-1">
+                <span id="vote-comment-choice-badge" class="text-xs font-black px-3 py-1 rounded-full bg-slate-100 text-slate-600">你的決策</span>
+            </div>
+            <h3 class="font-black text-lg text-slate-800 mt-3">留下你的看盤見解</h3>
+            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">分享你為什麼這樣判斷。若獲得其他交易員按讚，<span class="font-bold text-amber-600">每個讚 +3 積分</span>！(可留白直接揭曉)</p>
+            <textarea id="vote-comment-input" rows="3" placeholder="例如：1H 級別站上均線、量能同步放大，回踩就是進場點..." class="w-full mt-4 p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"></textarea>
+            <div class="flex gap-2 mt-4">
+                <button onclick="skipVoteComment()" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition">先跳過，直接揭曉</button>
+                <button onclick="submitVoteComment()" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-md">發表見解並揭曉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="glass-panel text-xs font-bold px-6 py-3.5 rounded-2xl shadow-xl flex items-center space-x-2 border-l-4 border-indigo-500 bg-white">
+            <span id="toast-icon" class="text-indigo-500"><i class="fa-solid fa-bell"></i></span>
+            <span id="toast-message" class="text-slate-700">系統提示訊息</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const fallbackConfig = {
+            apiKey: "AIzaSyDJLsWD8GgA_pRQkmwrMNWbTVPDteEnxBI",
+            authDomain: "trendquest-502605.firebaseapp.com",
+            projectId: "trendquest-502605",
+            storageBucket: "trendquest-502605.firebasestorage.app",
+            messagingSenderId: "823806458982",
+            appId: "1:823806458982:web:37afdfc2f08f25611c81a7",
+            measurementId: "G-LBRL5BDVTY"
+        };
+
+        // Determine actual config (Workspace injects __firebase_config, falls back to manual config)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : fallbackConfig;
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let db = null;
+        let auth = null;
+        let isFirebaseActive = false;
+
+        const ACHIEVEMENTS_DB = [
+            // ===== 積分成就 (cat: 'points') 50 ~ 10000 分 =====
+            { id: 1, name: "初試啼聲", desc: "歷史總積分累積達 50 分", cat: 'points', check: (u) => u.score >= 50 },
+            { id: 2, name: "波段探索者", desc: "歷史總積分累積達 300 分", cat: 'points', check: (u) => u.score >= 300, reward: "K線翻譯官" },
+            { id: 3, name: "趨勢衝浪好手", desc: "歷史總積分累積達 1000 分", cat: 'points', check: (u) => u.score >= 1000, reward: "滑板鞋交易員" },
+            { id: 4, name: "機構級分析師", desc: "歷史總積分累積達 2500 分", cat: 'points', check: (u) => u.score >= 2500 },
+            { id: 5, name: "金融海嘯掌門", desc: "歷史總積分累積達 5000 分", cat: 'points', check: (u) => u.score >= 5000, reward: "大摩幕後黑手" },
+            { id: 6, name: "交易界傳奇", desc: "歷史總積分累積達 10000 分", cat: 'points', check: (u) => u.score >= 10000, reward: "永不爆倉之神" },
+
+            // ===== 連續成就 (cat: 'streak') 連勝 =====
+            { id: 11, name: "交易順風耳", desc: "連續獲勝 3 次", cat: 'streak', check: (u) => u.maxStreak >= 3 },
+            { id: 12, name: "波動駕馭大師", desc: "連續獲勝 5 次", cat: 'streak', check: (u) => u.maxStreak >= 5 },
+            { id: 13, name: "東方神秘力量", desc: "連續獲勝 10 次", cat: 'streak', check: (u) => u.maxStreak >= 10, reward: "K線圖預言家" },
+            { id: 14, name: "時空開掛人生", desc: "連續獲勝 20 次", cat: 'streak', check: (u) => u.maxStreak >= 20 },
+            { id: 15, name: "神明降世", desc: "連續獲勝 30 次", cat: 'streak', check: (u) => u.maxStreak >= 30, reward: "因果律終極武器" },
+
+            // ===== 連續成就 連敗 =====
+            { id: 21, name: "完美滑價體驗", desc: "連續失敗 3 次", cat: 'streak', check: (u) => u.maxLossStreak >= 3 },
+            { id: 22, name: "反向操作導師", desc: "連續失敗 5 次", cat: 'streak', check: (u) => u.maxLossStreak >= 5 },
+            { id: 23, name: "市場燃料供應商", desc: "連續失敗 10 次", cat: 'streak', check: (u) => u.maxLossStreak >= 10, reward: "溫暖了整個金融市場" },
+            { id: 24, name: "冥王星常駐居民", desc: "連續失敗 20 次", cat: 'streak', check: (u) => u.maxLossStreak >= 20 },
+            { id: 25, name: "行走的黑天鵝", desc: "連續失敗 30 次", cat: 'streak', check: (u) => u.maxLossStreak >= 30, reward: "連上帝都搖頭的男人" },
+
+            // ===== 連續成就 社群互動讚數 =====
+            { id: 31, name: "略懂皮毛", desc: "留言累計獲得 5 個讚", cat: 'streak', check: (u) => (u.totalLikesReceived || 0) >= 5 },
+            { id: 32, name: "觀點引人共鳴", desc: "留言累計獲得 15 個讚", cat: 'streak', check: (u) => (u.totalLikesReceived || 0) >= 15 },
+            { id: 33, name: "社群核心燈塔", desc: "留言累計獲得 30 個讚", cat: 'streak', check: (u) => (u.totalLikesReceived || 0) >= 30, reward: "群組意見領袖" },
+            { id: 34, name: "首席分析大師", desc: "留言累計獲得 50 個讚", cat: 'streak', check: (u) => (u.totalLikesReceived || 0) >= 50, reward: "投顧老師接班人" },
+
+            // ===== 連續成就 累計參與 =====
+            { id: 41, name: "每日勤勉打卡", desc: "累計參與測驗 10 次", cat: 'streak', check: (u) => u.participations >= 10 },
+            { id: 42, name: "市場常青樹", desc: "累計參與測驗 30 次", cat: 'streak', check: (u) => u.participations >= 30 },
+            { id: 43, name: "鋼鐵交易魂", desc: "累計參與測驗 50 次", cat: 'streak', check: (u) => u.participations >= 50, reward: "莫得感情的下單機器" },
+            { id: 44, name: "金融界終身奉獻", desc: "累計參與測驗 100 次", cat: 'streak', check: (u) => u.participations >= 100, reward: "把K線走勢當壁紙的人" },
+
+            // ===== 連續成就 做多 / 做空預測成功 =====
+            { id: 51, name: "多頭探路先鋒", desc: "做多預測成功累積達 10 次", cat: 'streak', check: (u) => (u.bullWins || 0) >= 10 },
+            { id: 52, name: "狂暴巨牛騎士", desc: "做多預測成功累積達 30 次", cat: 'streak', check: (u) => (u.bullWins || 0) >= 30 },
+            { id: 53, name: "牛市永恆主宰", desc: "做多預測成功累積達 50 次", cat: 'streak', check: (u) => (u.bullWins || 0) >= 50, reward: "黃金巨牛尊者" },
+
+            { id: 56, name: "空頭策略專家", desc: "做空預測成功累積達 10 次", cat: 'streak', check: (u) => (u.bearWins || 0) >= 10 },
+            { id: 57, name: "流動性防守者", desc: "做空預測成功累積達 30 次", cat: 'streak', check: (u) => (u.bearWins || 0) >= 30 },
+            { id: 58, name: "大空頭戰術大師", desc: "做空預測成功累積達 50 次", cat: 'streak', check: (u) => (u.bearWins || 0) >= 50, reward: "空頭策略宗師" },
+
+            // ===== 連續成就 不進場預測成功 =====
+            { id: 61, name: "冷靜市場觀察家", desc: "不進場成功累積達 10 次", cat: 'streak', check: (u) => (u.neutralWins || 0) >= 10 },
+            { id: 62, name: "心魔克制者", desc: "不進場成功累積達 30 次", cat: 'streak', check: (u) => (u.neutralWins || 0) >= 30 },
+            { id: 63, name: "靜若處子動若脫兔", desc: "不進場成功累積達 50 次", cat: 'streak', check: (u) => (u.neutralWins || 0) >= 50, reward: "無為而治宗師" },
+
+            // ===== 連續成就 單一商品預測成功 =====
+            { id: 66, name: "路邊撿到金牌", desc: "黃金預測成功累積達 10 次", cat: 'streak', check: (u) => (u.goldWins || 0) >= 10 },
+            { id: 67, name: "黃金現貨囤貨狂", desc: "黃金預測成功累積達 30 次", cat: 'streak', check: (u) => (u.goldWins || 0) >= 30 },
+            { id: 68, name: "含金量爆表", desc: "黃金預測成功累積達 50 次", cat: 'streak', check: (u) => (u.goldWins || 0) >= 50, reward: "純金打造的肝" },
+
+            { id: 71, name: "鏈上小散戶", desc: "比特幣預測成功累積達 10 次", cat: 'streak', check: (u) => (u.btcWins || 0) >= 10 },
+            { id: 72, name: "鑽石手神話", desc: "比特幣預測成功累積達 30 次", cat: 'streak', check: (u) => (u.btcWins || 0) >= 30 },
+            { id: 73, name: "賽博龐克造物主", desc: "比特幣預測成功累積達 50 次", cat: 'streak', check: (u) => (u.btcWins || 0) >= 50, reward: "買下薩爾瓦多的男人" },
+
+            { id: 76, name: "矽谷接刀小韭菜", desc: "納斯達克預測成功累積達 10 次", cat: 'streak', check: (u) => (u.nasdaqWins || 0) >= 10 },
+            { id: 77, name: "把 NVDA 當定存", desc: "納斯達克預測成功累積達 30 次", cat: 'streak', check: (u) => (u.nasdaqWins || 0) >= 30 },
+            { id: 78, name: "我比美聯儲更懂降息", desc: "納斯達克預測成功累積達 50 次", cat: 'streak', check: (u) => (u.nasdaqWins || 0) >= 50, reward: "納指星系主宰" },
+
+            { id: 81, name: "道瓊菜鳥小散", desc: "道瓊預測成功累積達 10 次", cat: 'streak', check: (u) => (u.dowWins || 0) >= 10 },
+            { id: 82, name: "藍籌股衝浪大師", desc: "道瓊預測成功累積達 30 次", cat: 'streak', check: (u) => (u.dowWins || 0) >= 30 },
+            { id: 83, name: "道瓊控盤神之手", desc: "道瓊預測成功累積達 50 次", cat: 'streak', check: (u) => (u.dowWins || 0) >= 50, reward: "道指真正的主人" },
+
+            // ===== 連續成就 綜合傳奇里程碑 =====
+            { id: 90, name: "全天候對沖經理", desc: "所有商品預測成功皆達 10 次", cat: 'streak', check: (u) => (u.goldWins||0)>=10 && (u.btcWins||0)>=10 && (u.nasdaqWins||0)>=10 && (u.dowWins||0)>=10, reward: "全天候宏觀對沖經理" },
+            { id: 91, name: "多空雙向收割機", desc: "做多與做空成功皆達 20 次", cat: 'streak', check: (u) => (u.bullWins||0)>=20 && (u.bearWins||0)>=20 },
+            { id: 92, name: "穩健防禦大師", desc: "不進場成功 20 次且總積分高於 500", cat: 'streak', check: (u) => (u.neutralWins||0)>=20 && u.score >= 500 },
+            { id: 93, name: "社群頂尖領袖", desc: "單次連勝 7 次且獲得 20 個讚", cat: 'streak', check: (u) => u.maxStreak >= 7 && (u.totalLikesReceived||0) >= 20, reward: "社群明星分析師" },
+            { id: 94, name: "終極看盤巨獸", desc: "歷史參與 100 次且至少解鎖 5 個稱號", cat: 'streak', check: (u) => u.participations >= 100 && (u.claimedAchievements||[]).length >= 5, reward: "看盤機器人 V8" },
+
+            // ===== 排行成就 (cat: 'rank') 排行榜前三 / 累積奪冠 =====
+            // 於每半月結算時,依「本階段累積積分」排名頒發(見後端結算機制)
+            { id: 101, name: "初登龍虎榜", desc: "單期結算擠進排行榜前三名 1 次", cat: 'rank', check: (u) => (u.top3Finishes || 0) >= 1 },
+            { id: 102, name: "前三名常客", desc: "累積 3 次結算進入排行榜前三名", cat: 'rank', check: (u) => (u.top3Finishes || 0) >= 3, reward: "殿堂級操盤手" },
+            { id: 103, name: "榜上釘子戶", desc: "累積 10 次結算進入排行榜前三名", cat: 'rank', check: (u) => (u.top3Finishes || 0) >= 10, reward: "常勝榜神" },
+
+            { id: 104, name: "首度封王", desc: "單期結算奪得排行榜冠軍 1 次", cat: 'rank', check: (u) => (u.championships || 0) >= 1, reward: "本期預測王" },
+            { id: 105, name: "三冠加冕", desc: "累積奪得排行榜冠軍 3 次", cat: 'rank', check: (u) => (u.championships || 0) >= 3 },
+            { id: 106, name: "冠軍收藏家", desc: "累積奪得排行榜冠軍 5 次", cat: 'rank', check: (u) => (u.championships || 0) >= 5, reward: "傳奇常勝軍" }
+        ];
+
+        let state = {
+            currentUser: null,
+            currentPeriod: 'q1',
+            currentTimeframe: '15m',
+            activeAuthTab: 'login',
+            activeAchievementFilter: 'all',
+            leaderboardMode: 'phase', // 'phase' or 'total'
+            showPlayerCount: true,    // 已登錄玩家數是否對玩家顯示(由管理員切換,存於雲端設定)
+            playerCount: 0,
+            currentPage: 'game',      // 目前分頁:game / announcements / forum
+            announcementsCache: [],
+            forumPosts: [],
+            forumReplies: [],
+            currentThreadId: null,
+            mockComments: {
+                '12:00': [
+                    { id: 'm101', user: "布林帶小霸王", content: "15分鐘級別黃金回踩了120天均線，這裡剛好是前高支撐位，不囉唆直接看多！", likes: 23, likedBy: [] },
+                    { id: 'm102', user: "高階下行對沖師", content: "黃金在 1H 的 RSI 已經破 80，這是極度超買信號，我預計會有一次洗盤，大膽做空！", likes: 14, likedBy: [] },
+                    { id: 'm103', user: "保守觀望佛系派", content: "今晚有美聯儲利率決議，市場大概率先橫盤，還是不進場看戲最安全。", likes: 8, likedBy: [] }
+                ],
+                '15:00': [
+                    { id: 'm201', user: "納指推土機", content: "美股牛市不言頂，回踩就是買點，15分鐘小幅拉回，我直接滿倉做多！", likes: 19, likedBy: [] },
+                    { id: 'm202', user: "理性交易派", content: "高位震盪，量能已經出現背離，小心假突破，我持幣觀望。", likes: 12, likedBy: [] }
+                ],
+                '18:00': [
+                    { id: 'm301', user: "道瓊多頭老手", content: "道瓊在1H站上所有均線，紅三兵配量能放大，回踩就是加碼點，直接做多！", likes: 31, likedBy: [] },
+                    { id: 'm302', user: "華爾街避險客", content: "昨晚費半走弱、殖利率又彈高，道瓊開高大概率承壓，我等反彈找空點。", likes: 15, likedBy: [] }
+                ],
+                '21:00': [
+                    { id: 'm401', user: "比特幣信徒", content: "BTC 在 1H 出現了完美的上升三角收斂突破！這是牛市起飛的訊號，趕快做多！", likes: 45, likedBy: [] },
+                    { id: 'm402', user: "爆倉生存者", content: "這裡上下插針太嚴重，槓桿開大一下就沒了，不進場才是贏家。", likes: 27, likedBy: [] }
+                ]
+            },
+            votedState: {}, // (legacy, 已由雲端投票紀錄取代)
+            questions: {}   // 各時段題目快取 { '12:00': { docId, data, myVote, answer, revealed } }
+        };
+
+        const LOCAL_LEADERBOARD_DB = [
+            { name: "量子交易海皇", score: 8450, phaseScore: 1250, title: "對沖基金領袖", streak: 12 },
+            { name: "巴菲特傳人", score: 6200, phaseScore: 900, title: "首席策略官", streak: 8 },
+            { name: "空頭策略宗師", score: 4850, phaseScore: 650, title: "空頭策略宗師", streak: 0 },
+            { name: "瘋狂槓桿俠", score: 3100, phaseScore: 500, title: "初階分析師", streak: 5 },
+            { name: "理智多頭", score: 2200, phaseScore: 350, title: "實盤入門者", streak: 3 }
+        ];
+
+        window.onload = function() {
+            state.currentPeriod = 'q1';
+            initFirebaseEngine();
+            checkPhaseRollover();
+            renderPeriods();
+            loadChallengeData();
+            prefetchAllQuestions();
+        };
+
+        async function initFirebaseEngine() {
+            const statusBanner = document.getElementById('firebase-status-banner');
+            const statusText = document.getElementById('firebase-status-text');
+
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    isFirebaseActive = true;
+                    
+                    statusBanner.className = "bg-emerald-600 text-white text-[11px] font-bold text-center py-1.5 px-4 flex justify-center items-center space-x-2";
+                    statusText.innerText = `🟢 雲端同步連線中`;
+
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            if (!user.isAnonymous) {
+                                await syncUserRecord(user);
+                                // 即時監聽自己的雲端資料:後端結算積分時自動更新畫面
+                                const meRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+                                if (window.__meUnsub) window.__meUnsub();
+                                window.__meUnsub = onSnapshot(meRef, (snap) => {
+                                    if (!snap.exists()) return;
+                                    const prevScore = state.currentUser ? (state.currentUser.score || 0) : null;
+                                    state.currentUser = snap.data();
+                                    document.getElementById('guest-buttons').classList.add('hidden');
+                                    document.getElementById('user-profile-widget').classList.remove('hidden');
+                                    document.getElementById('user-display-nickname').innerText = state.currentUser.nickname;
+                                    document.getElementById('user-display-score').innerText = `🔥 ${state.currentUser.score} PTS`;
+                                    document.getElementById('user-avatar-initial').innerText = state.currentUser.nickname.charAt(0).toUpperCase();
+                                    updateProfileDashboard();
+                                    if (prevScore !== null && (state.currentUser.score || 0) > prevScore) {
+                                        showToast(`🎉 積分已入帳！目前總積分 ${state.currentUser.score} PTS`, 'success');
+                                        checkAchievements();
+                                    }
+                                });
+                            } else {
+                                if (window.__meUnsub) { window.__meUnsub(); window.__meUnsub = null; }
+                            }
+                            await loadSession();
+                            checkPhaseRollover();
+                            clearQuestionCache();
+                            loadChallengeData();
+                            prefetchAllQuestions();
+                            renderLeaderboard();
+                            applyPlayerCountVisibility();   // 登入後套用(管理員才看得到開關)
+                        } else {
+                            try {
+                                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                    await signInWithCustomToken(auth, __initial_auth_token);
+                                } else {
+                                    await signInAnonymously(auth);
+                                }
+                            } catch (e) {
+                                console.error("Anonymous authentication fallback failed", e);
+                            }
+                        }
+                    });
+
+                    // Set up snapshot streams
+                    const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                    const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+
+                    onSnapshot(usersCol, () => { renderLeaderboard(); }, (err) => console.error(err));
+                    onSnapshot(commentsCol, () => { renderComments(); }, (err) => console.error(err));
+
+                    loadAppSettings();   // 讀取「玩家數是否顯示」設定
+
+                } catch (error) {
+                    console.error("Firebase setup failed:", error);
+                    fallbackToLocalStorage(statusBanner, statusText);
+                }
+            } else {
+                fallbackToLocalStorage(statusBanner, statusText);
+            }
+        }
+
+        function fallbackToLocalStorage(banner, text) {
+            isFirebaseActive = false;
+            banner.className = "bg-amber-600 text-white text-[11px] font-bold text-center py-1.5 px-4 flex justify-center items-center space-x-2";
+            text.innerText = "⚠️ 本地演示模式 (請於 index.html 頂端貼上 Firebase 金鑰以啟用雲端同步！)";
+            if (!localStorage.getItem('tq_users_db')) {
+                localStorage.setItem('tq_users_db', JSON.stringify({}));
+            }
+            loadSession();
+            renderLeaderboard();
+        }
+
+        async function syncUserRecord(user) {
+            const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+            const docSnap = await getDoc(userDocRef);
+            if (!docSnap.exists()) {
+                const defaultData = {
+                    account: user.email || 'anonymous',
+                    nickname: user.displayName || (user.isAnonymous ? '匿名交易員' : (user.email && user.email.includes('@') ? user.email.split('@')[0] : '交易員_' + user.uid.substring(0, 5))),
+                    email: user.email || 'anonymous',
+                    score: 0,
+                    phaseScore: 0,
+                    wins: 0,
+                    losses: 0,
+                    phaseWins: 0,
+                    phaseLosses: 0,
+                    currentPhase: getCurrentPhaseString(),
+                    bullWins: 0,
+                    bearWins: 0,
+                    neutralWins: 0,
+                    goldWins: 0,
+                    btcWins: 0,
+                    nasdaqWins: 0,
+                    dowWins: 0,
+                    top3Finishes: 0,
+                    championships: 0,
+                    participations: 0,
+                    streak: 0,
+                    maxStreak: 0,
+                    lossStreak: 0,
+                    maxLossStreak: 0,
+                    totalLikesReceived: 0,
+                    claimedAchievements: [],
+                    registeredAt: Date.now()
+                };
+                await setDoc(userDocRef, defaultData);
+            }
+        }
+
+        // 結算週期改為「上下半月」:每月 1~15 為上半月、16~月底為下半月,各結算一次
+        function getCurrentPhaseString() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const date = now.getDate();
+            const half = date <= 15 ? '上半月' : '下半月';
+            return `${year}年${month}月${half}`;
+        }
+
+        // 依今天日期回傳結算提示:結算日當天顯示「今日結算！」,否則顯示下一個截止日
+        function getPhaseDeadlineLabel() {
+            const now = new Date();
+            const date = now.getDate();
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();  // 當月最後一天
+            if (date <= 15) return date === 15 ? '今日 15 號結算！' : '15 號結算';
+            return date === lastDay ? '今日月底結算！' : `${lastDay} 號結算`;
+        }
+
+        // 顯示用賽季名稱:自動依日期判斷,1~15 為「上半月賽季」、16 之後為「下半月賽季」
+        function getPhaseLabel() {
+            return new Date().getDate() <= 15 ? '上半月賽季' : '下半月賽季';
+        }
+
+        async function checkPhaseRollover() {
+            const currentPhaseStr = getCurrentPhaseString();
+            document.getElementById('current-global-phase-badge').innerText = `${getPhaseLabel()} · ${getPhaseDeadlineLabel()}`;
+            document.getElementById('panel-season-badge').innerText = getPhaseLabel();
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const uid = auth.currentUser.uid;
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    const u = userDoc.data();
+                    if (u.currentPhase !== currentPhaseStr) {
+                        await updateDoc(userDocRef, {
+                            phaseScore: 0,
+                            phaseWins: 0,
+                            phaseLosses: 0,
+                            currentPhase: currentPhaseStr
+                        });
+                        showToast(`🕒 新階段已開啟！您的「本階段累積積分」已歸零重計。`, "info");
+                    }
+                }
+            } else if (!isFirebaseActive) {
+                const session = localStorage.getItem('tq_logged_session');
+                if (session) {
+                    const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                    const user = dbLocal[session];
+                    if (user && user.currentPhase !== currentPhaseStr) {
+                        user.phaseScore = 0;
+                        user.phaseWins = 0;
+                        user.phaseLosses = 0;
+                        user.currentPhase = currentPhaseStr;
+                        localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                        showToast(`🕒 新階段已開啟！您的「本階段累積積分」已歸零重計。`, "info");
+                    }
+                }
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+            
+            toastMsg.innerText = message;
+            if (type === 'success') {
+                toastIcon.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500 text-sm"></i>`;
+            } else if (type === 'error') {
+                toastIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-500 text-sm"></i>`;
+            } else {
+                toastIcon.innerHTML = `<i class="fa-solid fa-bell text-indigo-500 text-sm"></i>`;
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function loadSession() {
+            if (isFirebaseActive && auth?.currentUser && !auth.currentUser.isAnonymous) {
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', auth.currentUser.uid);
+                const docSnap = await getDoc(userDocRef);
+                if (docSnap.exists()) {
+                    state.currentUser = docSnap.data();
+                    document.getElementById('guest-buttons').classList.add('hidden');
+                    document.getElementById('user-profile-widget').classList.remove('hidden');
+                    document.getElementById('user-display-nickname').innerText = state.currentUser.nickname;
+                    document.getElementById('user-display-score').innerText = `🔥 ${state.currentUser.score} PTS`;
+                    document.getElementById('user-avatar-initial').innerText = state.currentUser.nickname.charAt(0).toUpperCase();
+                    updateProfileDashboard();
+                }
+            } else {
+                const session = !isFirebaseActive ? localStorage.getItem('tq_logged_session') : null;
+                if (session) {
+                    const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                    state.currentUser = dbLocal[session];
+                    if (state.currentUser) {
+                        document.getElementById('guest-buttons').classList.add('hidden');
+                        document.getElementById('user-profile-widget').classList.remove('hidden');
+                        document.getElementById('user-display-nickname').innerText = state.currentUser.nickname;
+                        document.getElementById('user-display-score').innerText = `🔥 ${state.currentUser.score} PTS`;
+                        document.getElementById('user-avatar-initial').innerText = state.currentUser.nickname.charAt(0).toUpperCase();
+                        updateProfileDashboard();
+                    }
+                } else {
+                    state.currentUser = null;
+                    document.getElementById('guest-buttons').classList.remove('hidden');
+                    document.getElementById('user-profile-widget').classList.add('hidden');
+                }
+            }
+        }
+
+        async function updateProfileDashboard() {
+            if (!state.currentUser) return;
+            const user = state.currentUser;
+
+            const daysSinceReg = Math.max(1, Math.ceil((Date.now() - (user.registeredAt || Date.now())) / (1000 * 60 * 60 * 24)));
+            const partRate = (((user.participations || 0) / (daysSinceReg * 4)) * 100).toFixed(1);
+            
+            const totalGames = (user.wins || 0) + (user.losses || 0);
+            const winRate = totalGames > 0 ? (((user.wins || 0) / totalGames) * 100).toFixed(1) : "0.0";
+
+            const phaseGames = (user.phaseWins || 0) + (user.phaseLosses || 0);
+            const phaseWinRate = phaseGames > 0 ? (((user.phaseWins || 0) / phaseGames) * 100).toFixed(1) : "0.0";
+
+            let currentTitle = "韭菜新手";
+            ACHIEVEMENTS_DB.forEach(ach => {
+                if (ach.reward && ach.check(user)) currentTitle = ach.reward;
+            });
+
+            document.getElementById('panel-avatar').innerText = user.nickname.charAt(0).toUpperCase();
+            document.getElementById('panel-nickname').innerText = user.nickname;
+            document.getElementById('panel-email').innerText = user.email;
+            document.getElementById('panel-score').innerText = `${user.score} PTS`;
+            document.getElementById('panel-title').innerText = currentTitle;
+
+            document.getElementById('panel-phase-score').innerText = `${user.phaseScore || 0} PTS`;
+            document.getElementById('panel-phase-wins').innerText = `${user.phaseWins || 0} W`;
+            document.getElementById('panel-phase-losses').innerText = `${user.phaseLosses || 0} L`;
+            document.getElementById('panel-phase-winrate').innerText = `${phaseWinRate}%`;
+
+            getEstimatedRank(isFirebaseActive ? auth.currentUser.uid : user.account, 'phase', (rankPosition) => {
+                document.getElementById('panel-phase-rank').innerText = `第 ${rankPosition} 名`;
+            });
+
+            document.getElementById('panel-games-count').innerText = `${user.participations || 0} 次`;
+            document.getElementById('panel-wins').innerText = `${user.wins || 0} W`;
+            document.getElementById('panel-losses').innerText = `${user.losses || 0} L`;
+            document.getElementById('panel-winrate').innerText = `${winRate}%`;
+            document.getElementById('panel-part-rate').innerText = `${partRate > 100 ? 100 : partRate}%`;
+
+            document.getElementById('panel-bull-wins').innerText = user.bullWins || 0;
+            document.getElementById('panel-bear-wins').innerText = user.bearWins || 0;
+            document.getElementById('panel-neutral-wins').innerText = user.neutralWins || 0;
+
+            document.getElementById('panel-gold-wins').innerText = `${user.goldWins || 0} 次`;
+            document.getElementById('panel-btc-wins').innerText = `${user.btcWins || 0} 次`;
+            document.getElementById('panel-nasdaq-wins').innerText = `${user.nasdaqWins || 0} 次`;
+            document.getElementById('panel-dow-wins').innerText = `${user.dowWins || 0} 次`;
+
+            document.getElementById('panel-streak').innerText = `${user.streak || 0} 🔥`;
+            document.getElementById('panel-lossstreak').innerText = `${user.lossStreak || 0} 💀`;
+            document.getElementById('panel-likes').innerText = user.totalLikesReceived || 0;
+        }
+
+        async function getEstimatedRank(identifier, mode = 'phase', callback) {
+            let players = [];
+            if (isFirebaseActive) {
+                const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                const snapshot = await getDocs(usersCol);
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    players.push({
+                        id: docSnap.id,
+                        score: d.score || 0,
+                        phaseScore: d.phaseScore || 0
+                    });
+                });
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                Object.keys(dbLocal).forEach(key => {
+                    const u = dbLocal[key];
+                    players.push({ id: u.account, score: u.score || 0, phaseScore: u.phaseScore || 0 });
+                });
+            }
+
+            if (mode === 'phase') {
+                players.sort((a, b) => b.phaseScore - a.phaseScore);
+            } else {
+                players.sort((a, b) => b.score - a.score);
+            }
+            const idx = players.findIndex(p => p.id === identifier);
+            callback(idx !== -1 ? idx + 1 : 1);
+        }
+
+        // ==================== 雲端題目引擎(真實歷史行情) ====================
+
+        // 管理員白名單:填入你的 Firebase UID(Firebase Console → Authentication → 使用者 → UID 欄位)
+        // 管理員可無限次重測題目、對已關卷題目測試;管理員的投票不列入計分與全球統計
+        const ADMIN_UIDS = ['Rr23IajbQIXSsClmruro9edXma23'];
+        function isAdminUser() {
+            return !!(auth?.currentUser && ADMIN_UIDS.includes(auth.currentUser.uid));
+        }
+
+        const DAILY_SLOTS = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'];
+        const DAILY_COUNT = DAILY_SLOTS.length;
+        const HIDDEN_COUNT = 3;
+
+        const docListeners = {};   // docId -> unsubscribe
+
+        function dateKey(offsetDays = 0) {
+            const d = new Date(Date.now() + offsetDays * 86400000);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function slotNum(slot) { return parseInt(String(slot).replace('q', ''), 10) || 1; }
+        function isAnswered(slot) { const e = state.questions[slot]; return !!(e && e.myVote); }
+        function answeredCount() { return DAILY_SLOTS.filter(isAnswered).length; }
+        function allAnswered() {
+            // 六題都已載入且都作答完畢
+            const loaded = DAILY_SLOTS.every(s => state.questions[s] && state.questions[s].data);
+            return loaded && DAILY_SLOTS.every(isAnswered);
+        }
+        function firstUnansweredSlot() {
+            return DAILY_SLOTS.find(s => !isAnswered(s)) || DAILY_SLOTS[0];
+        }
+
+        function clearQuestionCache() {
+            Object.values(docListeners).forEach(unsub => { try { unsub(); } catch (e) {} });
+            Object.keys(docListeners).forEach(k => delete docListeners[k]);
+            state.questions = {};
+        }
+
+        async function ensureQuestion(slot) {
+            let entry = state.questions[slot];
+            if (entry) {
+                if (entry.promise) await entry.promise;
+                return entry;
+            }
+            entry = { docId: null, data: null, myVote: null, answer: null, revealed: false, promise: null };
+            state.questions[slot] = entry;
+            entry.promise = loadQuestionEntry(slot, entry);
+            await entry.promise;
+            entry.promise = null;
+            return entry;
+        }
+
+        async function loadQuestionEntry(slot, entry) {
+            if (!isFirebaseActive) return;
+
+            const candidates = [`${dateKey(0)}_${slot}`, `${dateKey(-1)}_${slot}`];
+
+            for (const docId of candidates) {
+                try {
+                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'questions', docId));
+                    if (snap.exists()) {
+                        entry.docId = docId;
+                        entry.data = snap.data();
+                        break;
+                    }
+                } catch (e) { console.error('讀取題目失敗', docId, e); }
+            }
+            if (!entry.data) return;
+
+            // 即時監聽題目文件(投票統計約每 5 分鐘更新、關卷時答案自動公開)
+            if (!docListeners[entry.docId]) {
+                docListeners[entry.docId] = onSnapshot(
+                    doc(db, 'artifacts', appId, 'public', 'data', 'questions', entry.docId),
+                    (snap) => {
+                        if (!snap.exists()) return;
+                        entry.data = snap.data();
+                        if (state.currentPeriod === slot) renderChallenge(slot);
+                        renderPeriods();
+                    },
+                    (err) => console.error(err)
+                );
+            }
+
+            // 查詢我是否已對本題作答
+            if (auth?.currentUser && !auth.currentUser.isAnonymous) {
+                try {
+                    const vSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'questions', entry.docId, 'votes', auth.currentUser.uid));
+                    if (vSnap.exists()) {
+                        entry.myVote = vSnap.data();
+                        entry.revealed = true;
+                    }
+                } catch (e) { /* 尚未作答 */ }
+            }
+
+            // 已作答且尚未關卷 → 讀取答案文件(安全規則:投過票才有權限)
+            if (entry.myVote && entry.data.status === 'open') {
+                try {
+                    const aSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'answers', entry.docId));
+                    if (aSnap.exists()) entry.answer = aSnap.data();
+                } catch (e) { console.error('讀取答案失敗(請確認 Firestore 安全規則已部署)', e); }
+            }
+        }
+
+        async function prefetchAllQuestions() {
+            if (!isFirebaseActive) return;
+            await Promise.all(DAILY_SLOTS.map(s => ensureQuestion(s)));
+            state.currentPeriod = firstUnansweredSlot();
+            renderPeriods();
+            renderChallenge(state.currentPeriod);
+        }
+
+        function getAnswerBundle(entry) {
+            // 已關卷:答案已公開寫回題目文件;開卷中且已作答:答案在 answers 文件
+            if (entry.data && entry.data.status === 'closed' && entry.data.answer) {
+                return {
+                    answer: entry.data.answer,
+                    changePct: entry.data.changePct,
+                    reveal15m: entry.data.reveal15m || [],
+                    reveal1h: entry.data.reveal1h || [],
+                    sourceTime: entry.data.sourceTime || '',
+                };
+            }
+            return entry.answer;   // 可能為 null(尚未作答)
+        }
+
+        // ==================== K 線繪製(真實歷史 K 棒) ====================
+        function drawChart(visibleCandles, revealCandles, revealCount) {
+            const canvas = document.getElementById('klineCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+
+            ctx.fillStyle = '#fafbfc';
+            ctx.fillRect(0, 0, width, height);
+
+            if (!visibleCandles || visibleCandles.length === 0) return;
+
+            const shownReveal = (revealCandles || []).slice(0, revealCount || 0);
+            const drawList = visibleCandles.concat(shownReveal);
+
+            const chartHeight = height * 0.75;
+            const volHeight = height * 0.15;
+            const topMargin = 20;
+            const bottomMargin = 25;
+            const rightMargin = 58;
+
+            const visibleWidth = width - rightMargin;
+            const totalSlots = visibleCandles.length + HIDDEN_COUNT + 1;   // 40 可見 + 3 隱藏 + 1 呼吸空間
+            const candleWidth = visibleWidth / totalSlots;
+
+            let maxPrice = -Infinity, minPrice = Infinity, maxVolume = -Infinity;
+            drawList.forEach(c => {
+                if (c.high > maxPrice) maxPrice = c.high;
+                if (c.low < minPrice) minPrice = c.low;
+                if ((c.volume || 0) > maxVolume) maxVolume = c.volume || 0;
+            });
+            if (maxVolume <= 0) maxVolume = 1;
+
+            const priceRange = (maxPrice - minPrice) || Math.abs(maxPrice * 0.01) || 1;
+            maxPrice += priceRange * 0.1;
+            minPrice -= priceRange * 0.1;
+
+            const getX = (i) => i * candleWidth + candleWidth / 2;
+            const getY = (p) => topMargin + (1 - (p - minPrice) / (maxPrice - minPrice)) * (chartHeight - topMargin);
+            const getVolY = (v) => height - bottomMargin - (v / maxVolume) * volHeight;
+
+            // 網格與價格軸
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)';
+            ctx.lineWidth = 1;
+            const gridCount = 5;
+            for (let i = 0; i <= gridCount; i++) {
+                const y = topMargin + (i / gridCount) * (chartHeight - topMargin);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(visibleWidth, y);
+                ctx.stroke();
+
+                const priceVal = maxPrice - (i / gridCount) * (maxPrice - minPrice);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '9px "Plus Jakarta Sans"';
+                ctx.fillText(formatPrice(priceVal), visibleWidth + 5, y + 3);
+            }
+            for (let i = 0; i < totalSlots; i += 5) {
+                const x = getX(i);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height - bottomMargin);
+                ctx.stroke();
+            }
+
+            // 揭曉區底色
+            if (shownReveal.length > 0) {
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.06)';
+                ctx.fillRect(visibleCandles.length * candleWidth, 0, (HIDDEN_COUNT + 1) * candleWidth, height - bottomMargin);
+            }
+
+            drawList.forEach((candle, i) => {
+                const isBull = candle.close >= candle.open;
+                const x = getX(i);
+                const openY = getY(candle.open);
+                const closeY = getY(candle.close);
+                const highY = getY(candle.high);
+                const lowY = getY(candle.low);
+
+                const color = isBull ? '#10b981' : '#f43f5e';
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = 1.5;
+
+                ctx.beginPath();
+                ctx.moveTo(x, highY);
+                ctx.lineTo(x, lowY);
+                ctx.stroke();
+
+                const bodyHeight = Math.max(1, Math.abs(openY - closeY));
+                const bodyY = Math.min(openY, closeY);
+                ctx.fillRect(x - candleWidth * 0.3, bodyY, candleWidth * 0.6, bodyHeight);
+
+                const volY = getVolY(candle.volume || 0);
+                ctx.fillStyle = isBull ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)';
+                ctx.fillRect(x - candleWidth * 0.35, volY, candleWidth * 0.7, height - bottomMargin - volY);
+            });
+
+            // 決策點分隔線
+            const lineX = visibleCandles.length * candleWidth;
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(lineX, 0);
+            ctx.lineTo(lineX, height - bottomMargin);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#6366f1';
+            ctx.font = 'bold 9px "Plus Jakarta Sans"';
+            ctx.fillText('決策點', Math.max(4, lineX - 36), height - 12);
+
+            // 遮罩對齊決策線
+            const mask = document.getElementById('chartMask');
+            if (mask) mask.style.left = lineX + 'px';
+        }
+
+        function formatPrice(v) {
+            if (v >= 10000) return Math.round(v).toLocaleString();
+            if (v >= 100) return v.toFixed(1);
+            return v.toFixed(2);
+        }
+
+        async function handleVote(choice) {
+            if (!isFirebaseActive) {
+                showToast('目前無法連上雲端伺服器,請稍後再試!', 'error');
+                return;
+            }
+            if (!auth?.currentUser || auth.currentUser.isAnonymous || !state.currentUser) {
+                openAuthModal('login');
+                showToast('請先註冊或登入帳號,才能參與決策並同步全球排行榜!', 'error');
+                return;
+            }
+
+            const period = state.currentPeriod;
+            const entry = state.questions[period];
+
+            if (!entry || !entry.data) { showToast('本時段題目尚未開放,請等待整點自動出題!', 'info'); return; }
+            if (entry.data.status !== 'open' && !isAdminUser()) { showToast('本期已關卷,請挑戰其他時段!', 'info'); return; }
+            if (entry.myVote) { showToast('您本期已經做過決策囉!', 'info'); return; }
+
+            const uid = auth.currentUser.uid;
+            const voteRef = doc(db, 'artifacts', appId, 'public', 'data', 'questions', entry.docId, 'votes', uid);
+
+            try {
+                await setDoc(voteRef, {
+                    choice: choice,
+                    nickname: state.currentUser.nickname || '交易員',
+                    ts: Date.now()
+                });
+            } catch (e) {
+                console.error('投票寫入失敗', e);
+                showToast('決策送出失敗:可能已投過票、本期已關卷,或安全規則尚未部署', 'error');
+                return;
+            }
+
+            entry.myVote = { choice: choice };
+            entry.adminTesting = false;
+
+            // 讀取答案(安全規則:投過票才有權限讀取)
+            try {
+                const aSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'answers', entry.docId));
+                if (aSnap.exists()) entry.answer = aSnap.data();
+            } catch (e) {
+                console.error('讀取答案失敗', e);
+            }
+
+            // 投票當下:先跳出留言框讓玩家留下見解,關閉(送出或跳過)後才揭曉
+            openVoteCommentModal(period, choice);
+        }
+
+        // 管理員專用:清除自己的投票,重新測試本題(不影響其他玩家)
+        async function adminRetest() {
+            if (!isAdminUser()) { showToast('此功能僅限管理員使用', 'error'); return; }
+
+            const period = state.currentPeriod;
+            const entry = state.questions[period];
+            if (!entry || !entry.data) return;
+
+            try {
+                if (entry.myVote) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'questions', entry.docId, 'votes', auth.currentUser.uid));
+                }
+            } catch (e) {
+                console.error('清除投票失敗(請確認安全規則已加入管理員條款)', e);
+                showToast('清除投票失敗:請確認 Firestore 規則已更新管理員權限', 'error');
+                return;
+            }
+
+            entry.myVote = null;
+            entry.answer = null;
+            entry.revealed = false;
+            entry.adminTesting = true;
+            renderChallenge(period);
+            renderPeriods();
+            showToast('🔧 管理員模式:本題已重置,可重新測試!', 'info');
+        }
+
+        function playRevealAnimation(period, choice) {
+            const entry = state.questions[period];
+            const bundle = getAnswerBundle(entry);
+            const candles = state.currentTimeframe === '15m' ? (entry.data.candles15m || []) : (entry.data.candles1h || []);
+            const reveal = bundle ? (state.currentTimeframe === '15m' ? bundle.reveal15m : bundle.reveal1h) : [];
+
+            document.getElementById('chartMask').classList.add('hidden');
+
+            let step = 0;
+            const timer = setInterval(() => {
+                step++;
+                drawChart(candles, reveal, step);
+                if (step >= HIDDEN_COUNT) {
+                    clearInterval(timer);
+                    entry.revealed = true;
+                    renderChallenge(period);
+                    renderPeriods();
+
+                    if (bundle) {
+                        const isCorrect = (choice === bundle.answer);
+                        showToast(
+                            isCorrect ? '🚀 判斷完全正確!積分 +50 將於數分鐘內由系統結算入帳!' : '📉 判斷失誤,積分 −10!下一題扳回來!',
+                            isCorrect ? 'success' : 'error'
+                        );
+                    } else {
+                        showToast('✅ 決策已送出!', 'success');
+                    }
+                }
+            }, 450);
+        }
+
+        // ===== 投票見解彈窗(投票當下留下見解,被按讚可累積積分) =====
+        function openVoteCommentModal(period, choice) {
+            state.pendingVote = { period: period, choice: choice };
+            const badge = document.getElementById('vote-comment-choice-badge');
+            const map = {
+                bull:    { t: '你的決策：做多 📈', c: 'text-xs font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600' },
+                bear:    { t: '你的決策：做空 📉', c: 'text-xs font-black px-3 py-1 rounded-full bg-rose-50 text-rose-600' },
+                neutral: { t: '你的決策：不進場 ⚖️', c: 'text-xs font-black px-3 py-1 rounded-full bg-slate-100 text-slate-600' },
+            };
+            const m = map[choice] || map.neutral;
+            badge.innerText = m.t;
+            badge.className = m.c;
+            document.getElementById('vote-comment-input').value = '';
+            document.getElementById('voteCommentModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('vote-comment-input').focus(), 50);
+        }
+
+        function closeVoteCommentModal() {
+            document.getElementById('voteCommentModal').classList.add('hidden');
+        }
+
+        async function submitVoteComment() {
+            const input = document.getElementById('vote-comment-input');
+            const text = input.value.trim();
+            closeVoteCommentModal();
+            if (text) await submitComment(text);
+            input.value = '';
+            finishVoteFlow();
+        }
+
+        function skipVoteComment() {
+            closeVoteCommentModal();
+            finishVoteFlow();
+        }
+
+        // 留言框關閉後才播放揭曉動畫
+        function finishVoteFlow() {
+            const pv = state.pendingVote;
+            if (!pv) return;
+            state.pendingVote = null;
+            playRevealAnimation(pv.period, pv.choice);
+        }
+
+        function checkAchievements() {
+            if (!state.currentUser) return;
+            const user = state.currentUser;
+            let newlyClaimableCount = 0;
+
+            ACHIEVEMENTS_DB.forEach(ach => {
+                if (ach.reward && !user.claimedAchievements.includes(ach.id)) {
+                    if (ach.check(user)) newlyClaimableCount++;
+                }
+            });
+
+            if (newlyClaimableCount > 0) {
+                showToast(`🏆 恭喜！您有 ${newlyClaimableCount} 個新成就已經達成！請至「成就中心」領取！`, "success");
+            }
+        }
+
+        async function loadChallengeData() {
+            const period = state.currentPeriod;
+            if (isFirebaseActive) await ensureQuestion(period);
+            renderChallenge(period);
+        }
+
+        function renderChallenge(slot) {
+            if (slot !== state.currentPeriod) return;
+
+            const challengeCard = document.getElementById('challenge-card');
+            const completePanel = document.getElementById('daily-complete');
+
+            // 六題全部答完 → 顯示「今日挑戰已完成」畫面
+            if (allAnswered()) {
+                if (challengeCard) challengeCard.classList.add('hidden');
+                if (completePanel) completePanel.classList.remove('hidden');
+                renderDailyComplete();
+                renderPeriods();
+                return;
+            }
+            if (challengeCard) challengeCard.classList.remove('hidden');
+            if (completePanel) completePanel.classList.add('hidden');
+
+            const entry = state.questions[slot] || {};
+            const data = entry.data;
+            const mask = document.getElementById('chartMask');
+            const maskTitle = document.getElementById('mask-title');
+            const maskDesc = document.getElementById('mask-desc');
+            const pollBox = document.getElementById('poll-container');
+            const resBox = document.getElementById('result-container');
+            const nextBtn = document.getElementById('next-question-btn');
+            const commentsOverlay = document.getElementById('comments-locked-overlay');
+
+            const md = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+            document.getElementById('challenge-time').innerText = `${md} 盤勢挑戰（${slotNum(slot)}/${DAILY_COUNT}）`;
+            document.getElementById('challenge-symbol').innerText = (data && data.name) ? data.name : `第 ${slotNum(slot)} 題`;
+
+            // ---- 尚未出題 / 離線 ----
+            if (!data) {
+                drawChart([], null, 0);
+                mask.classList.remove('hidden');
+                mask.style.left = '0px';
+                maskTitle.innerText = isFirebaseActive ? '本題尚未開放' : '雲端連線異常';
+                maskDesc.innerText = isFirebaseActive
+                    ? '今日題目將於每天 00:00 自動更新,請稍後再回來挑戰!'
+                    : '無法連上 Firebase 雲端,請檢查網路或稍後重試。';
+                pollBox.classList.add('hidden');
+                resBox.classList.add('hidden');
+                if (nextBtn) nextBtn.classList.add('hidden');
+                commentsOverlay.classList.remove('hidden');
+                renderComments();
+                return;
+            }
+
+            const candles = state.currentTimeframe === '15m' ? (data.candles15m || []) : (data.candles1h || []);
+            const bundle = getAnswerBundle(entry);
+            const revealed = (entry.revealed || data.status === 'closed') && !entry.adminTesting;
+            const reveal = bundle ? (state.currentTimeframe === '15m' ? bundle.reveal15m : bundle.reveal1h) : [];
+
+            drawChart(candles, reveal, revealed ? HIDDEN_COUNT : 0);
+
+            if (revealed) {
+                mask.classList.add('hidden');
+                pollBox.classList.add('hidden');
+                resBox.classList.remove('hidden');
+                commentsOverlay.classList.add('hidden');
+                renderResult(entry, bundle);
+                if (nextBtn) nextBtn.classList.toggle('hidden', entry.adminTesting === true);
+            } else {
+                mask.classList.remove('hidden');
+                maskTitle.innerText = '未來 3 根 K 棒已隱藏';
+                maskDesc.innerText = '真實歷史盤面盲測,切換 15m / 1H 雙視角分析後做出決策!';
+                pollBox.classList.remove('hidden');
+                resBox.classList.add('hidden');
+                if (nextBtn) nextBtn.classList.add('hidden');
+                commentsOverlay.classList.remove('hidden');
+            }
+
+            renderComments();
+            renderPeriods();
+        }
+
+        // 進入下一個尚未作答的題(六題都答完則自動切到完成畫面)
+        function goNextQuestion() {
+            selectPeriod(firstUnansweredSlot());
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 今日挑戰完成畫面:統計答對題數與獲得積分(答對 +50、答錯 -10)
+        function renderDailyComplete() {
+            let correct = 0, wrong = 0, rows = '';
+            DAILY_SLOTS.forEach(s => {
+                const e = state.questions[s];
+                if (!e || !e.data) return;
+                const my = e.myVote ? e.myVote.choice : null;
+                const ans = (e.answer && e.answer.answer) || (e.data.status === 'closed' ? e.data.answer : null);
+                const ok = !!(my && ans && my === ans);
+                if (ok) correct++; else wrong++;
+                rows += `<div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span class="text-xs font-bold text-slate-700 truncate mr-2">第${slotNum(s)}題 · ${escapeHtml(e.data.name || '')}</span>
+                    <span class="text-xs font-black shrink-0 ${ok ? 'text-emerald-600' : 'text-rose-500'}">${ok ? '✓ 答對 +50' : '✗ 答錯 −10'}</span>
+                </div>`;
+            });
+            const net = correct * 50 - wrong * 10;
+            const netStr = (net >= 0 ? '+' : '−') + Math.abs(net);
+            document.getElementById('daily-complete-stats').innerHTML = `
+                <div class="text-center"><div class="text-3xl font-black text-indigo-600">${correct}/${DAILY_COUNT}</div><div class="text-[11px] text-slate-400 mt-1">答對題數</div></div>
+                <div class="text-center"><div class="text-3xl font-black ${net >= 0 ? 'text-amber-500' : 'text-rose-500'}">${netStr}</div><div class="text-[11px] text-slate-400 mt-1">今日淨得積分</div></div>`;
+            document.getElementById('daily-complete-list').innerHTML = rows;
+        }
+
+        function renderResult(entry, bundle) {
+            const outcomeAlert = document.getElementById('outcome-alert');
+            const srcBadge = document.getElementById('source-time-badge');
+            const adminBtn = document.getElementById('admin-retest-btn');
+            const data = entry.data;
+
+            if (adminBtn) adminBtn.classList.toggle('hidden', !isAdminUser());
+
+            const answer = bundle ? bundle.answer : '';
+            const pct = bundle ? Number(bundle.changePct || 0) : 0;
+            const sourceTime = bundle ? (bundle.sourceTime || '') : '';
+
+            srcBadge.innerText = sourceTime
+                ? `📅 本題取材自 ${sourceTime} 的真實行情`
+                : '📅 出題時間將於關卷後公開';
+
+            let outcomeText = '';
+            if (answer === 'bull') {
+                outcomeText = `📈 15分K隨後向上拉升!漲幅 +${pct.toFixed(2)}% (做多獲勝)`;
+                outcomeAlert.className = 'p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-emerald-50 text-emerald-700 border border-emerald-150';
+            } else if (answer === 'bear') {
+                outcomeText = `📉 15分K隨後走弱下跌!跌幅 ${pct.toFixed(2)}% (做空獲勝)`;
+                outcomeAlert.className = 'p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-rose-50 text-rose-700 border border-rose-150';
+            } else if (answer === 'neutral') {
+                outcomeText = `⚖️ 15分K呈現橫盤震盪!變動幅度極小 ${pct.toFixed(2)}% (不進場獲勝)`;
+                outcomeAlert.className = 'p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-slate-100 text-slate-700 border border-slate-200';
+            } else {
+                outcomeText = '⏳ 答案讀取中,請稍候...';
+                outcomeAlert.className = 'p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-slate-100 text-slate-500 border border-slate-200';
+            }
+
+            if (entry.myVote) {
+                const uc = entry.myVote.choice;
+                const isCorrect = (uc === answer);
+                const icon = isCorrect
+                    ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i>'
+                    : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i>';
+                outcomeAlert.innerHTML = `${icon} <div>您的決策是:<span class="underline">${uc === 'bull' ? '做多' : uc === 'bear' ? '做空' : '不進場'}</span>。<br>${outcomeText}<br><span class="text-[10px] font-normal opacity-70">積分由系統自動結算,約 5 分鐘內入帳</span></div>`;
+            } else {
+                outcomeAlert.innerHTML = `<i class="fa-solid fa-eye mr-2 text-xl"></i> <div>您未參與本期決策(觀戰模式)。<br>${outcomeText}</div>`;
+            }
+
+            // 全球投票比例(後端約每 5 分鐘統計一次)
+            let b = data.bullVotes || 0, s = data.bearVotes || 0, n = data.neutralVotes || 0;
+            if (entry.myVote && b + s + n === 0) {
+                if (entry.myVote.choice === 'bull') b = 1;
+                else if (entry.myVote.choice === 'bear') s = 1;
+                else n = 1;
+            }
+            const total = Math.max(1, b + s + n);
+            const bPct = Math.round(b / total * 100);
+            const sPct = Math.round(s / total * 100);
+            const nPct = Math.max(0, 100 - bPct - sPct);
+
+            document.getElementById('ratio-bull-lbl').innerText = bPct + '%';
+            document.getElementById('ratio-bull-bar').style.width = bPct + '%';
+            document.getElementById('ratio-bear-lbl').innerText = sPct + '%';
+            document.getElementById('ratio-bear-bar').style.width = sPct + '%';
+            document.getElementById('ratio-neutral-lbl').innerText = nPct + '%';
+            document.getElementById('ratio-neutral-bar').style.width = nPct + '%';
+        }
+
+        let __resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(__resizeTimer);
+            __resizeTimer = setTimeout(() => renderChallenge(state.currentPeriod), 200);
+        });
+
+        function selectPeriod(period) {
+            state.currentPeriod = period;
+            renderPeriods();
+            loadChallengeData();
+        }
+
+        function switchTimeframe(tf) {
+            state.currentTimeframe = tf;
+            const btn15 = document.getElementById('btn-tf-15m');
+            const btn1H = document.getElementById('btn-tf-1H');
+
+            if (tf === '15m') {
+                btn15.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btn1H.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+            } else {
+                btn15.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+                btn1H.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+            }
+            renderChallenge(state.currentPeriod);
+        }
+
+        function renderPeriods() {
+            const box = document.getElementById('period-list');
+            const label = document.getElementById('daily-progress-label');
+            if (!box) return;
+            const done = answeredCount();
+            if (label) label.innerText = allAnswered() ? '🎉 今日六題已全部完成' : `已完成 ${done} / ${DAILY_COUNT} 題`;
+
+            box.innerHTML = '';
+            DAILY_SLOTS.forEach(s => {
+                const entry = state.questions[s];
+                const data = entry && entry.data;
+                const voted = isAnswered(s);
+                const isCur = state.currentPeriod === s;
+                const name = data ? data.name : `第 ${slotNum(s)} 題`;
+                let badge, badgeCls;
+                if (voted) { badge = '已挑戰'; badgeCls = 'bg-indigo-100 text-indigo-700'; }
+                else if (data) { badge = '待挑戰'; badgeCls = 'bg-amber-500 text-white'; }
+                else { badge = '未開放'; badgeCls = 'bg-slate-100 text-slate-400'; }
+
+                const btn = document.createElement('button');
+                btn.onclick = () => selectPeriod(s);
+                btn.className = `w-full p-3 rounded-2xl border transition-all flex items-center justify-between text-left ${isCur ? 'border-brand-500/80 bg-brand-50/50 shadow-sm' : 'border-slate-200 hover:bg-slate-50 bg-white'}`;
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-8 h-8 rounded-xl ${voted ? 'bg-indigo-500/10 text-indigo-600' : 'bg-slate-500/10 text-slate-500'} flex items-center justify-center font-black text-xs shrink-0">${slotNum(s)}</span>
+                        <p class="font-bold text-xs text-slate-800 truncate">${escapeHtml(name)}</p>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeCls}">${badge}</span>`;
+                box.appendChild(btn);
+            });
+        }
+
+        async function renderComments() {
+            const list = document.getElementById('comments-list');
+            list.innerHTML = '';
+
+            if (isFirebaseActive) {
+                const curEntry = state.questions[state.currentPeriod];
+                const curQid = (curEntry && curEntry.data) ? curEntry.data.docId : null;
+
+                const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+                const snapshot = await getDocs(commentsCol);
+                let loadedComments = [];
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    // 只顯示「當前這一題(qid)」的留言;新題目出來後(qid 改變)舊留言自動不再顯示
+                    if (curQid && d.qid === curQid) {
+                        loadedComments.push({ id: docSnap.id, ...d });
+                    }
+                });
+
+                // Sort in memory by timestamp
+                loadedComments.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                if (loadedComments.length === 0) {
+                    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">目前此時段尚無評論，快來發表全網第一條犀利解析！</p>`;
+                    return;
+                }
+
+                loadedComments.forEach(com => {
+                    const hasLiked = state.currentUser ? (com.likedBy || []).includes(auth.currentUser.uid) : false;
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex justify-between items-start";
+                    card.innerHTML = `
+                        <div class="space-y-1 pr-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-700">${com.user}</span>
+                                <span class="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded-full font-bold">交易分析員</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">${com.content}</p>
+                        </div>
+                        <button onclick="likeComment('${com.id}')" class="px-3 py-1.5 rounded-xl border flex items-center space-x-1.5 transition-all text-xs font-bold ${hasLiked ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}">
+                            <i class="fa-regular fa-thumbs-up"></i>
+                            <span>${com.likes || 0}</span>
+                        </button>
+                    `;
+                    list.appendChild(card);
+                });
+            } else {
+                const currentList = state.mockComments[state.currentPeriod] || [];
+                currentList.forEach(com => {
+                    const hasLiked = state.currentUser ? com.likedBy.includes(state.currentUser.account) : false;
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex justify-between items-start";
+                    card.innerHTML = `
+                        <div class="space-y-1 pr-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-700">${com.user}</span>
+                                <span class="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded-full font-bold">交易分析員</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">${com.content}</p>
+                        </div>
+                        <button onclick="likeComment('${com.id}')" class="px-3 py-1.5 rounded-xl border flex items-center space-x-1.5 transition-all text-xs font-bold ${hasLiked ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}">
+                            <i class="fa-regular fa-thumbs-up"></i>
+                            <span>${com.likes}</span>
+                        </button>
+                    `;
+                    list.appendChild(card);
+                });
+            }
+        }
+
+        async function postComment(e) {
+            e.preventDefault();
+            const input = document.getElementById('comment-text-input');
+            const text = input.value.trim();
+            if (!text) return;
+            await submitComment(text);
+            input.value = '';
+        }
+
+        // 送出一則留言(留言板表單與投票見解彈窗共用);綁定當前題目 qid,新題目出來後舊留言不再顯示
+        async function submitComment(text) {
+            if (!state.currentUser || !text) return;
+            const entry = state.questions[state.currentPeriod];
+            const qid = (entry && entry.data) ? entry.data.docId : null;
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+                await addDoc(commentsCol, {
+                    period: state.currentPeriod,
+                    qid: qid,
+                    user: state.currentUser.nickname,
+                    userUid: auth.currentUser.uid,
+                    content: text,
+                    likes: 0,
+                    likedBy: [],
+                    timestamp: Date.now()
+                });
+            } else {
+                const newCom = {
+                    id: 'm_' + Date.now(),
+                    user: state.currentUser.nickname,
+                    content: text,
+                    likes: 0,
+                    likedBy: []
+                };
+                if (!state.mockComments[state.currentPeriod]) {
+                    state.mockComments[state.currentPeriod] = [];
+                }
+                state.mockComments[state.currentPeriod].unshift(newCom);
+                renderComments();
+            }
+
+            showToast("見解發表成功！被按讚可累積積分 🔥", "success");
+        }
+
+        async function likeComment(comId) {
+            if (!state.currentUser) {
+                showToast("登入後即可為優秀的解析點讚！", "error");
+                return;
+            }
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const myUid = auth.currentUser.uid;
+                const commentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'comments', comId);
+                const comSnap = await getDoc(commentDocRef);
+                
+                if (comSnap.exists()) {
+                    const cData = comSnap.data();
+                    let likedBy = cData.likedBy || [];
+                    let likes = cData.likes || 0;
+                    const creatorUid = cData.userUid;
+
+                    if (likedBy.includes(myUid)) {
+                        likedBy = likedBy.filter(id => id !== myUid);
+                        likes = Math.max(0, likes - 1);
+                        await updateDoc(commentDocRef, { likedBy, likes });
+                        
+                        // Deduct point from comment author
+                        if (creatorUid) {
+                            const creatorDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', creatorUid);
+                            const crSnap = await getDoc(creatorDocRef);
+                            if (crSnap.exists()) {
+                                const cr = crSnap.data();
+                                await updateDoc(creatorDocRef, {
+                                    score: Math.max(0, (cr.score || 0) - 3),
+                                    totalLikesReceived: Math.max(0, (cr.totalLikesReceived || 0) - 1)
+                                });
+                            }
+                        }
+                    } else {
+                        likedBy.push(myUid);
+                        likes += 1;
+                        await updateDoc(commentDocRef, { likedBy, likes });
+
+                        // Add points to comment author (+3 score per like)
+                        if (creatorUid) {
+                            const creatorDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', creatorUid);
+                            const crSnap = await getDoc(creatorDocRef);
+                            if (crSnap.exists()) {
+                                const cr = crSnap.data();
+                                await updateDoc(creatorDocRef, {
+                                    score: (cr.score || 0) + 3,
+                                    totalLikesReceived: (cr.totalLikesReceived || 0) + 1
+                                });
+                            }
+                        }
+                    }
+                    await loadSession();
+                }
+            } else {
+                const myAcc = state.currentUser.account;
+                const currentList = state.mockComments[state.currentPeriod] || [];
+                const com = currentList.find(c => c.id === comId);
+                
+                if (com) {
+                    if (com.likedBy.includes(myAcc)) {
+                        com.likedBy = com.likedBy.filter(acc => acc !== myAcc);
+                        com.likes = Math.max(0, com.likes - 1);
+                        state.currentUser.totalLikesReceived = Math.max(0, (state.currentUser.totalLikesReceived || 0) - 1);
+                        state.currentUser.score = Math.max(0, (state.currentUser.score || 0) - 1);
+                    } else {
+                        com.likedBy.push(myAcc);
+                        com.likes += 1;
+                        state.currentUser.totalLikesReceived = (state.currentUser.totalLikesReceived || 0) + 1;
+                        state.currentUser.score = (state.currentUser.score || 0) + 1;
+                    }
+                    
+                    const dbLocal = JSON.parse(localStorage.getItem('tq_users_db'));
+                    dbLocal[myAcc] = state.currentUser;
+                    localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                    await loadSession();
+                    renderComments();
+                }
+            }
+        }
+
+        function openAchievementsModal() {
+            document.getElementById('achievementsModal').classList.remove('hidden');
+            filterAchievements(state.activeAchievementFilter);
+        }
+
+        function filterAchievements(filter) {
+            state.activeAchievementFilter = filter;
+            const tabs = {
+                all:     document.getElementById('btn-ach-all'),
+                points:  document.getElementById('btn-ach-points'),
+                streak:  document.getElementById('btn-ach-streak'),
+                rank:    document.getElementById('btn-ach-rank'),
+                claimed: document.getElementById('btn-ach-claimed'),
+            };
+            const inactive = "px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50";
+            const activeCls = {
+                all:     "px-4 py-2 rounded-xl text-xs font-black bg-indigo-50 text-indigo-600 border border-indigo-100",
+                points:  "px-4 py-2 rounded-xl text-xs font-black bg-brand-50 text-brand-600 border border-brand-100",
+                streak:  "px-4 py-2 rounded-xl text-xs font-black bg-amber-50 text-amber-600 border border-amber-100",
+                rank:    "px-4 py-2 rounded-xl text-xs font-black bg-rose-50 text-rose-600 border border-rose-100",
+                claimed: "px-4 py-2 rounded-xl text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100",
+            };
+            Object.keys(tabs).forEach(k => { if (tabs[k]) tabs[k].className = inactive; });
+            if (tabs[filter]) tabs[filter].className = activeCls[filter];
+
+            renderAchievements();
+        }
+
+        function renderAchievements() {
+            const list = document.getElementById('ach-list');
+            list.innerHTML = '';
+
+            const user = state.currentUser || { score: 0, wins: 0, losses: 0, participations: 0, streak: 0, lossStreak: 0, bullWins:0, bearWins:0, neutralWins:0, goldWins:0, btcWins:0, nasdaqWins:0, dowWins:0, top3Finishes:0, championships:0, maxStreak: 0, maxLossStreak: 0, claimedAchievements: [], totalLikesReceived: 0 };
+
+            document.getElementById('total-ach-count').innerText = ACHIEVEMENTS_DB.length;
+
+            const filter = state.activeAchievementFilter;
+
+            ACHIEVEMENTS_DB.forEach(ach => {
+                const isCompleted = ach.check(user);
+                const isClaimed = user.claimedAchievements && user.claimedAchievements.includes(ach.id);
+
+                // 分類過濾
+                if (filter === 'claimed') { if (!isClaimed) return; }
+                else if (filter !== 'all') { if (ach.cat !== filter) return; }
+
+                const card = document.createElement('div');
+                card.className = `achievement-card p-4 rounded-2xl border transition-all ${isClaimed ? 'bg-slate-50 border-slate-200 opacity-70' : isCompleted ? 'bg-gradient-to-tr from-amber-50 to-amber-100/50 border-amber-300' : 'bg-white border-slate-150'}`;
+
+                let btnHTML = '';
+                if (ach.reward) {
+                    // 有稱號的成就:可領取
+                    if (isClaimed) {
+                        btnHTML = `<span class="text-xs text-slate-400 font-bold"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>已領取稱號</span>`;
+                    } else if (isCompleted) {
+                        btnHTML = `<button onclick="claimAchievement(${ach.id})" class="px-3.5 py-1.5 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600 transition shadow-md">領取稱號</button>`;
+                    } else {
+                        btnHTML = `<span class="text-xs text-slate-400 font-bold italic"><i class="fa-solid fa-lock mr-1 text-slate-300"></i>未達成</span>`;
+                    }
+                } else {
+                    // 無稱號的成就:只顯示達成 / 未達成,不需領取
+                    btnHTML = isCompleted
+                        ? `<span class="text-xs text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>已達成</span>`
+                        : `<span class="text-xs text-slate-400 font-bold italic"><i class="fa-solid fa-lock mr-1 text-slate-300"></i>未達成</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex flex-col justify-between h-full space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-black text-sm text-slate-800">${ach.name}</h4>
+                                <span class="text-[9px] px-2 py-0.5 rounded-full ${isCompleted ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-slate-100 text-slate-400'}">
+                                    ${ach.reward ? '🎖️ 稱號' : '🔥 成就'}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1 leading-tight">${ach.desc}</p>
+                            ${ach.reward ? `<p class="text-xs font-bold text-indigo-600 mt-2 flex items-center"><i class="fa-solid fa-signature mr-1.5 text-indigo-400"></i>獎勵稱號：【${ach.reward}】</p>` : ''}
+                        </div>
+                        <div class="flex justify-between items-center border-t pt-3 border-slate-100 mt-2">
+                            ${btnHTML}
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+
+            if (!list.children.length) {
+                list.innerHTML = `<div class="col-span-full text-center text-slate-400 text-sm py-12">此分類目前沒有成就</div>`;
+            }
+        }
+
+        async function claimAchievement(id) {
+            if (!state.currentUser) return;
+
+            const ach = ACHIEVEMENTS_DB.find(a => a.id === id);
+            if (!ach) return;
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const uid = auth.currentUser.uid;
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+                const docSnap = await getDoc(userDocRef);
+                if (docSnap.exists()) {
+                    const u = docSnap.data();
+                    let claimed = u.claimedAchievements || [];
+                    if (!claimed.includes(id)) {
+                        claimed.push(id);
+                        await updateDoc(userDocRef, { claimedAchievements: claimed });
+                        showToast(`🏆 稱號「${ach.reward}」領取成功！`, "success");
+                        await loadSession();
+                        filterAchievements(state.activeAchievementFilter);
+                    }
+                }
+            } else {
+                const myAcc = state.currentUser.account;
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db'));
+                const user = dbLocal[myAcc];
+                
+                if (!user.claimedAchievements) user.claimedAchievements = [];
+                if (!user.claimedAchievements.includes(id)) {
+                    user.claimedAchievements.push(id);
+                    localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                    showToast(`🏆 稱號「${ach.reward}」領取成功！`, "success");
+                    await loadSession();
+                    filterAchievements(state.activeAchievementFilter);
+                }
+            }
+        }
+
+        function toggleProfilePanel() {
+            const panel = document.getElementById('profilePanel');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                setTimeout(() => panel.classList.remove('translate-x-full'), 10);
+            } else {
+                panel.classList.add('translate-x-full');
+                setTimeout(() => panel.classList.add('hidden'), 300);
+            }
+        }
+
+        // ==================== 分頁切換 + 版主公告 + 留言板 ====================
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function emptyMsg(t) { return `<div class="text-center text-slate-400 text-sm py-12">${escapeHtml(t)}</div>`; }
+        function fmtTime(ts) { return ts ? new Date(ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
+
+        // 目前台北時間的「小時」(0–23)
+        function taipeiHour() {
+            const s = new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei', hour12: false, hour: '2-digit' });
+            let h = parseInt(s, 10);
+            if (isNaN(h)) h = new Date().getHours();
+            return h === 24 ? 0 : h;
+        }
+        // 該時段是否已開放:玩家要等到當天該整點才看得到;管理員可預覽全部(方便測試)
+        function isPeriodOpen(period) {
+            if (isAdminUser()) return true;
+            const openHour = parseInt(String(period).split(':')[0], 10);
+            return taipeiHour() >= openHour;
+        }
+        function requireLogin() {
+            if (!state.currentUser || !isFirebaseActive || !auth?.currentUser) {
+                showToast('請先登入才能發文或留言', 'error');
+                openAuthModal('login');
+                return false;
+            }
+            return true;
+        }
+
+        function switchPage(page) {
+            state.currentPage = page;
+            ['game', 'announcements', 'forum'].forEach(p => {
+                const pg = document.getElementById('page-' + p);
+                const tab = document.getElementById('tab-' + p);
+                if (pg) pg.classList.toggle('hidden', p !== page);
+                if (tab) tab.className = (p === page)
+                    ? 'whitespace-nowrap px-4 py-2 rounded-xl text-sm font-black bg-brand-600 text-white shadow-sm transition'
+                    : 'whitespace-nowrap px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition';
+            });
+            if (page === 'announcements') renderAnnouncements();
+            if (page === 'forum') renderForum();
+        }
+
+        // ----- 版主公告 -----
+        function annCol() { return collection(db, 'artifacts', appId, 'public', 'data', 'announcements'); }
+
+        async function renderAnnouncements() {
+            const list = document.getElementById('announcements-list');
+            const admin = isAdminUser();
+            const newBtn = document.getElementById('ann-new-btn');
+            if (newBtn) newBtn.classList.toggle('hidden', !admin);
+
+            if (!isFirebaseActive) { list.innerHTML = emptyMsg('目前為離線模式，公告功能需連線雲端'); return; }
+            list.innerHTML = emptyMsg('載入中…');
+            let items = [];
+            try {
+                const snap = await getDocs(annCol());
+                snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+            } catch (e) { list.innerHTML = emptyMsg('載入失敗'); return; }
+            // 置頂的排最前,其餘依時間新到舊
+            items.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.timestamp || 0) - (a.timestamp || 0));
+            state.announcementsCache = items;
+
+            if (!items.length) { list.innerHTML = emptyMsg('目前沒有公告'); return; }
+            list.innerHTML = '';
+            items.forEach(a => {
+                const adminBtns = admin ? `
+                    <div class="flex gap-3 mt-3 pt-3 border-t border-indigo-100">
+                        <button onclick="togglePinAnnouncement('${a.id}')" class="text-[11px] font-bold ${a.pinned ? 'text-amber-600' : 'text-slate-500'} hover:underline"><i class="fa-solid fa-thumbtack mr-1"></i>${a.pinned ? '取消置頂' : '置頂'}</button>
+                        <button onclick="openAnnouncementEditor('${a.id}')" class="text-[11px] font-bold text-indigo-600 hover:underline"><i class="fa-solid fa-pen mr-1"></i>編輯</button>
+                        <button onclick="deleteAnnouncement('${a.id}')" class="text-[11px] font-bold text-rose-500 hover:underline"><i class="fa-solid fa-trash mr-1"></i>刪除</button>
+                    </div>` : '';
+                const pinnedBadge = a.pinned ? `<span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 mr-2 shrink-0">📌 置頂</span>` : '';
+                const card = document.createElement('div');
+                card.className = a.pinned
+                    ? 'p-5 rounded-2xl border-2 border-amber-300 bg-gradient-to-tr from-amber-50/70 to-white'
+                    : 'p-5 rounded-2xl border border-indigo-100 bg-gradient-to-tr from-indigo-50/60 to-white';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-3">
+                        <h3 class="font-black text-slate-800 text-base flex items-center min-w-0">${pinnedBadge}<span class="truncate">${escapeHtml(a.title || '（無標題）')}</span></h3>
+                        <span class="text-[10px] text-slate-400 whitespace-nowrap mt-1">${fmtTime(a.timestamp)}${a.updatedAt ? ' · 已編輯' : ''}</span>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed">${escapeHtml(a.content || '')}</p>
+                    ${adminBtns}`;
+                list.appendChild(card);
+            });
+        }
+
+        async function togglePinAnnouncement(id) {
+            if (!isAdminUser()) return;
+            const a = (state.announcementsCache || []).find(x => x.id === id);
+            const next = !(a && a.pinned);
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', id), { pinned: next });
+                showToast(next ? '已置頂公告' : '已取消置頂', 'success');
+                renderAnnouncements();
+            } catch (e) { showToast('操作失敗', 'error'); }
+        }
+
+        let editingAnnId = null;
+        function openAnnouncementEditor(id) {
+            if (!isAdminUser()) return;
+            editingAnnId = id || null;
+            document.getElementById('ann-editor-title').innerText = id ? '編輯公告' : '新增公告';
+            const a = id && state.announcementsCache ? state.announcementsCache.find(x => x.id === id) : null;
+            document.getElementById('ann-input-title').value = a ? (a.title || '') : '';
+            document.getElementById('ann-input-content').value = a ? (a.content || '') : '';
+            document.getElementById('announcementModal').classList.remove('hidden');
+        }
+        function closeAnnouncementModal() { document.getElementById('announcementModal').classList.add('hidden'); }
+
+        async function saveAnnouncement() {
+            if (!isAdminUser()) return;
+            const title = document.getElementById('ann-input-title').value.trim();
+            const content = document.getElementById('ann-input-content').value.trim();
+            if (!title && !content) { showToast('請輸入公告內容', 'error'); return; }
+            try {
+                if (editingAnnId) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', editingAnnId), { title, content, updatedAt: Date.now() });
+                    showToast('公告已更新', 'success');
+                } else {
+                    await addDoc(annCol(), { title, content, authorName: state.currentUser?.nickname || '版主', authorUid: auth.currentUser?.uid || '', timestamp: Date.now() });
+                    showToast('公告已發布', 'success');
+                }
+                closeAnnouncementModal();
+                renderAnnouncements();
+            } catch (e) { showToast('寫入失敗:請確認安全規則允許管理員寫入 announcements', 'error'); }
+        }
+
+        async function deleteAnnouncement(id) {
+            if (!isAdminUser()) return;
+            if (!confirm('確定刪除這則公告？')) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'announcements', id));
+                showToast('公告已刪除', 'success');
+                renderAnnouncements();
+            } catch (e) { showToast('刪除失敗', 'error'); }
+        }
+
+        // ----- 留言板(所有人發文/留言,管理員可刪) -----
+        function forumPostsCol() { return collection(db, 'artifacts', appId, 'public', 'data', 'forumPosts'); }
+        function forumRepliesCol() { return collection(db, 'artifacts', appId, 'public', 'data', 'forumReplies'); }
+
+        // 列表:只顯示主題(作者、內容預覽、留言數),點擊跳出彈窗看留言串
+        async function renderForum() {
+            state.currentThreadId = null;
+            const list = document.getElementById('forum-list');
+            if (!isFirebaseActive) { list.innerHTML = emptyMsg('目前為離線模式，留言板需連線雲端'); return; }
+            list.innerHTML = emptyMsg('載入中…');
+            try {
+                const [pSnap, rSnap] = await Promise.all([getDocs(forumPostsCol()), getDocs(forumRepliesCol())]);
+                state.forumPosts = []; state.forumReplies = [];
+                pSnap.forEach(d => state.forumPosts.push({ id: d.id, ...d.data() }));
+                rSnap.forEach(d => state.forumReplies.push({ id: d.id, ...d.data() }));
+            } catch (e) { list.innerHTML = emptyMsg('載入失敗'); return; }
+            state.forumPosts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            if (!state.forumPosts.length) { list.innerHTML = emptyMsg('還沒有人發文，來當第一個吧！'); return; }
+            list.innerHTML = '';
+            state.forumPosts.forEach(p => {
+                const count = state.forumReplies.filter(r => r.postId === p.id).length;
+                const raw = p.content || '';
+                const preview = raw.length > 80 ? raw.slice(0, 80) + '…' : raw;
+                const card = document.createElement('div');
+                card.className = 'glass-panel rounded-2xl p-4 cursor-pointer hover:shadow-md transition';
+                card.onclick = () => openThread(p.id);
+                card.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-[11px] font-bold">${escapeHtml((p.authorName || '?').charAt(0).toUpperCase())}</div>
+                        <span class="text-sm font-black text-slate-800">${escapeHtml(p.authorName || '匿名交易員')}</span>
+                        <span class="text-[10px] text-slate-400">${fmtTime(p.timestamp)}</span>
+                    </div>
+                    <p class="text-sm text-slate-700 mt-2 whitespace-pre-wrap leading-snug">${escapeHtml(preview)}</p>
+                    <div class="flex items-center gap-1 mt-2 text-brand-600 text-xs font-bold"><i class="fa-solid fa-comment-dots"></i> ${count} 則留言</div>`;
+                list.appendChild(card);
+            });
+        }
+
+        function openThread(id) {
+            state.currentThreadId = id;
+            document.getElementById('forumThreadModal').classList.remove('hidden');
+            renderThread(id);
+        }
+        function closeThread() {
+            document.getElementById('forumThreadModal').classList.add('hidden');
+            renderForum();   // 關閉後刷新列表留言數
+        }
+
+        function renderThread(id) {
+            const box = document.getElementById('forum-thread-content');
+            const p = (state.forumPosts || []).find(x => x.id === id);
+            if (!p) { box.innerHTML = emptyMsg('這則主題已不存在'); return; }
+            const admin = isAdminUser();
+            const rs = (state.forumReplies || []).filter(r => r.postId === id).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const delPost = admin ? `<button onclick="deleteForumPost('${p.id}')" class="text-[11px] text-rose-500 hover:underline ml-auto"><i class="fa-solid fa-trash mr-1"></i>刪除主題</button>` : '';
+            const repliesHtml = rs.length ? rs.map(r => {
+                const delReply = admin ? `<button onclick="deleteForumReply('${r.id}')" class="text-[10px] text-rose-400 hover:underline ml-1"><i class="fa-solid fa-trash"></i></button>` : '';
+                return `<div class="pl-3 border-l-2 border-slate-100 py-2">
+                    <div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-700">${escapeHtml(r.authorName || '匿名')}</span><span class="text-[9px] text-slate-300">${fmtTime(r.timestamp)}</span>${delReply}</div>
+                    <p class="text-xs text-slate-600 whitespace-pre-wrap mt-0.5">${escapeHtml(r.content || '')}</p>
+                </div>`;
+            }).join('') : `<p class="text-xs text-slate-400 py-3">還沒有人留言，來搶頭香！</p>`;
+
+            box.innerHTML = `
+                <div class="glass-panel rounded-2xl p-5">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">${escapeHtml((p.authorName || '?').charAt(0).toUpperCase())}</div>
+                        <span class="text-sm font-black text-slate-800">${escapeHtml(p.authorName || '匿名交易員')}</span>
+                        <span class="text-[10px] text-slate-400">${fmtTime(p.timestamp)}</span>${delPost}
+                    </div>
+                    <p class="text-sm text-slate-700 mt-3 whitespace-pre-wrap leading-relaxed">${escapeHtml(p.content || '')}</p>
+                </div>
+                <div class="glass-panel rounded-2xl p-5 mt-4">
+                    <h4 class="text-xs font-black text-slate-500 mb-3">留言串（${rs.length}）</h4>
+                    <div class="space-y-1">${repliesHtml}</div>
+                    <div class="flex gap-2 mt-4">
+                        <input id="forum-reply-input" type="text" placeholder="在這則主題下留言…" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+                        <button onclick="submitForumReply()" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-xs font-bold hover:bg-brand-700">送出</button>
+                    </div>
+                </div>`;
+        }
+
+        async function submitForumPost() {
+            if (!requireLogin()) return;
+            const ta = document.getElementById('forum-new-post');
+            const content = ta.value.trim();
+            if (!content) return;
+            try {
+                await addDoc(forumPostsCol(), { content, authorName: state.currentUser.nickname, authorUid: auth.currentUser?.uid || '', timestamp: Date.now() });
+                ta.value = '';
+                showToast('貼文已發表', 'success');
+                renderForum();
+            } catch (e) { showToast('發表失敗', 'error'); }
+        }
+
+        async function submitForumReply() {
+            if (!requireLogin()) return;
+            const id = state.currentThreadId;
+            if (!id) return;
+            const input = document.getElementById('forum-reply-input');
+            const content = input.value.trim();
+            if (!content) return;
+            try {
+                await addDoc(forumRepliesCol(), { postId: id, content, authorName: state.currentUser.nickname, authorUid: auth.currentUser?.uid || '', timestamp: Date.now() });
+                input.value = '';
+                const rSnap = await getDocs(forumRepliesCol());   // 重新抓留言,留在主題內頁
+                state.forumReplies = [];
+                rSnap.forEach(d => state.forumReplies.push({ id: d.id, ...d.data() }));
+                renderThread(id);
+            } catch (e) { showToast('留言失敗', 'error'); }
+        }
+
+        async function deleteForumPost(id) {
+            if (!isAdminUser()) return;
+            if (!confirm('刪除這則主題？')) return;
+            try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forumPosts', id)); showToast('已刪除', 'success'); closeThread(); }
+            catch (e) { showToast('刪除失敗', 'error'); }
+        }
+        async function deleteForumReply(id) {
+            if (!isAdminUser()) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forumReplies', id));
+                state.forumReplies = (state.forumReplies || []).filter(r => r.id !== id);
+                if (state.currentThreadId) renderThread(state.currentThreadId); else renderForum();
+            } catch (e) { showToast('刪除失敗', 'error'); }
+        }
+
+        // ===== 管理玩家帳號(管理員專用) =====
+        function openPlayerManager() {
+            if (!isAdminUser()) return;
+            document.getElementById('playerManageModal').classList.remove('hidden');
+            renderPlayerManageList();
+        }
+        function closePlayerManager() {
+            document.getElementById('playerManageModal').classList.add('hidden');
+        }
+        async function renderPlayerManageList() {
+            const box = document.getElementById('player-manage-list');
+            box.innerHTML = emptyMsg('載入中…');
+            if (!isFirebaseActive) { box.innerHTML = emptyMsg('離線模式無法管理'); return; }
+            let users = [];
+            try {
+                const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'users'));
+                snap.forEach(d => users.push({ uid: d.id, ...d.data() }));
+            } catch (e) { box.innerHTML = emptyMsg('載入失敗'); return; }
+            users.sort((a, b) => (b.score || 0) - (a.score || 0));
+            if (!users.length) { box.innerHTML = emptyMsg('目前沒有玩家'); return; }
+            box.innerHTML = '';
+            users.forEach(u => {
+                const isSelf = auth?.currentUser && u.uid === auth.currentUser.uid;
+                const safeName = escapeHtml(u.nickname || '匿名');
+                const jsName = String(u.nickname || '').replace(/[\\'"]/g, '');
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 bg-slate-50';
+                row.innerHTML = `
+                    <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-[11px] font-bold">${escapeHtml((u.nickname || '?').charAt(0).toUpperCase())}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-bold text-slate-800 truncate">${safeName}${isSelf ? '<span class="text-[9px] text-indigo-500 ml-1">(你)</span>' : ''}</div>
+                        <div class="text-[10px] text-slate-400">積分 ${(u.score || 0).toLocaleString()}</div>
+                    </div>
+                    ${isSelf ? '<span class="text-[10px] text-slate-300">本人</span>'
+                             : `<button onclick="deleteUserAccount('${u.uid}','${jsName}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-500 text-[11px] font-bold hover:bg-rose-100"><i class="fa-solid fa-trash"></i></button>`}`;
+                box.appendChild(row);
+            });
+        }
+        async function deleteUserAccount(uid, name) {
+            if (!isAdminUser()) return;
+            if (!confirm(`確定刪除玩家「${name}」的遊戲資料?此動作無法復原。`)) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid));
+                showToast('已刪除該玩家資料', 'success');
+                renderPlayerManageList();
+                renderLeaderboard();
+            } catch (e) { showToast('刪除失敗:請確認安全規則允許管理員刪除', 'error'); }
+        }
+
+        // ===== 已登錄玩家數 + 管理員顯示/隱藏開關 =====
+        function setPlayerCount(n) {
+            state.playerCount = n || 0;
+            const el = document.getElementById('player-count-number');
+            if (el) el.innerText = state.playerCount.toLocaleString();
+            applyPlayerCountVisibility();
+        }
+
+        function applyPlayerCountVisibility() {
+            const card = document.getElementById('player-count-card');
+            if (!card) return;
+            const show = state.showPlayerCount !== false;   // 預設顯示
+            const admin = isAdminUser();
+
+            // 一般玩家:僅在「開啟」時看得到;管理員:一律看得到(方便掌握實際人數)
+            card.classList.toggle('hidden', !(show || admin));
+
+            const toggleBtn = document.getElementById('player-count-toggle-btn');
+            const toggleLabel = document.getElementById('player-count-toggle-label');
+            const note = document.getElementById('player-count-admin-note');
+            if (toggleBtn) {
+                toggleBtn.classList.toggle('hidden', !admin);
+                const icon = toggleBtn.querySelector('i');
+                if (icon) icon.className = 'mr-1 ' + (show ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash');
+                if (toggleLabel) toggleLabel.innerText = show ? '對玩家顯示中' : '已對玩家隱藏';
+            }
+            if (note) note.classList.toggle('hidden', !(admin && !show));
+
+            const manageBtn = document.getElementById('manage-players-btn');
+            if (manageBtn) manageBtn.classList.toggle('hidden', !admin);
+        }
+
+        async function loadAppSettings() {
+            if (!isFirebaseActive) { state.showPlayerCount = true; applyPlayerCountVisibility(); return; }
+            try {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'appSettings');
+                const snap = await getDoc(ref);
+                state.showPlayerCount = snap.exists() ? (snap.data().showPlayerCount !== false) : true;
+            } catch (e) {
+                state.showPlayerCount = true;   // 讀不到設定就預設顯示
+            }
+            applyPlayerCountVisibility();
+        }
+
+        async function togglePlayerCountVisibility() {
+            if (!isAdminUser()) return;
+            const next = !(state.showPlayerCount !== false);   // 反轉目前狀態
+            state.showPlayerCount = next;
+            applyPlayerCountVisibility();
+            if (isFirebaseActive) {
+                try {
+                    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'appSettings');
+                    await setDoc(ref, { showPlayerCount: next }, { merge: true });
+                    showToast(next ? '已對玩家「顯示」登錄人數' : '已對玩家「隱藏」登錄人數', 'success');
+                } catch (e) {
+                    showToast('設定寫入失敗:請確認 Firestore 安全規則允許寫入 config', 'error');
+                }
+            }
+        }
+
+        async function renderLeaderboard() {
+            const list = document.getElementById('leaderboard-container');
+            list.innerHTML = '';
+
+            let players = [];
+            let realCount = 0;
+            if (isFirebaseActive) {
+                const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                const snapshot = await getDocs(usersCol);
+                realCount = snapshot.size;
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    players.push({
+                        nickname: d.nickname || '匿名交易員',
+                        score: d.score || 0,
+                        phaseScore: d.phaseScore || 0,
+                        wins: d.wins || 0,
+                        losses: d.losses || 0,
+                        streak: d.streak || 0
+                    });
+                });
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                realCount = Object.keys(dbLocal).length;
+                Object.keys(dbLocal).forEach(key => {
+                    const u = dbLocal[key];
+                    players.push({
+                        nickname: u.nickname || '匿名交易員',
+                        score: u.score || 0,
+                        phaseScore: u.phaseScore || 0,
+                        wins: u.wins || 0,
+                        losses: u.losses || 0,
+                        streak: u.streak || 0
+                    });
+                });
+            }
+
+            setPlayerCount(realCount);
+
+            if (players.length === 0) {
+                LOCAL_LEADERBOARD_DB.forEach(p => {
+                    players.push({
+                        nickname: p.name,
+                        score: p.score,
+                        phaseScore: p.phaseScore,
+                        wins: 5,
+                        losses: 2,
+                        streak: p.streak
+                    });
+                });
+            }
+
+            if (state.leaderboardMode === 'phase') {
+                players.sort((a, b) => b.phaseScore - a.phaseScore);
+            } else {
+                players.sort((a, b) => b.score - a.score);
+            }
+
+            players.slice(0, 10).forEach((p, idx) => {
+                const rankCard = document.createElement('div');
+                rankCard.className = "flex items-center justify-between p-3 rounded-xl bg-white border border-slate-150 shadow-sm";
+                
+                let rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">${idx+1}</span>`;
+                if (idx === 0) rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-bold shadow-sm">🥇</span>`;
+                else if (idx === 1) rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-slate-300 text-white flex items-center justify-center text-xs font-bold shadow-sm">🥈</span>`;
+                else if (idx === 2) rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-orange-400 text-white flex items-center justify-center text-xs font-bold shadow-sm">🥉</span>`;
+
+                const totalGames = (p.wins || 0) + (p.losses || 0);
+                const winRate = totalGames > 0 ? ((p.wins / totalGames) * 100).toFixed(0) : "0";
+
+                rankCard.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        ${rankBadgeHTML}
+                        <div>
+                            <span class="text-xs font-bold block text-slate-700">${p.nickname}</span>
+                            <span class="text-[9px] text-slate-400">總勝率: ${winRate}% ${p.streak > 0 ? `| 🔥 ${p.streak} 連勝` : ''}</span>
+                        </div>
+                    </div>
+                    <span class="text-xs font-black text-slate-800">${state.leaderboardMode === 'phase' ? p.phaseScore : p.score} PTS</span>
+                `;
+                list.appendChild(rankCard);
+            });
+        }
+
+        function switchLeaderboardMode(mode) {
+            state.leaderboardMode = mode;
+            const btnPhase = document.getElementById('btn-lb-phase');
+            const btnTotal = document.getElementById('btn-lb-total');
+
+            if (mode === 'phase') {
+                btnPhase.className = "flex-1 py-1.5 font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btnTotal.className = "flex-1 py-1.5 font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+            } else {
+                btnPhase.className = "flex-1 py-1.5 font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+                btnTotal.className = "flex-1 py-1.5 font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+            }
+            renderLeaderboard();
+        }
+
+        function openAuthModal(tab) {
+            document.getElementById('authModal').classList.remove('hidden');
+            switchAuthTab(tab);
+        }
+
+        function switchAuthTab(tab) {
+            state.activeAuthTab = tab;
+            const tabL = document.getElementById('tab-login');
+            const tabR = document.getElementById('tab-register');
+            const regFields = document.getElementById('register-fields');
+            const errBox = document.getElementById('auth-error-msg');
+
+            errBox.classList.add('hidden');
+
+            if (tab === 'login') {
+                tabL.className = "flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600";
+                tabR.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600";
+                regFields.classList.add('hidden');
+            } else {
+                tabL.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600";
+                tabR.className = "flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600";
+                regFields.classList.remove('hidden');
+            }
+        }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const errBox = document.getElementById('auth-error-msg');
+            errBox.classList.add('hidden');
+
+            const email = document.getElementById('auth-account').value.trim();
+            const pass = document.getElementById('auth-password').value.trim();
+            const nickname = document.getElementById('auth-nickname').value.trim();
+
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(email)) {
+                errBox.innerText = "⚠️ 請輸入格式正確的電子信箱 (Email)！";
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            if (isFirebaseActive) {
+                try {
+                    if (state.activeAuthTab === 'register') {
+                        if (!nickname) {
+                            errBox.innerText = "⚠️ 註冊必須填寫玩家暱稱！";
+                            errBox.classList.remove('hidden');
+                            return;
+                        }
+                        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', cred.user.uid);
+                        await setDoc(userDocRef, {
+                            account: email,
+                            nickname: nickname,
+                            email: email,
+                            score: 0,
+                            phaseScore: 0,
+                            wins: 0,
+                            losses: 0,
+                            phaseWins: 0,
+                            phaseLosses: 0,
+                            currentPhase: getCurrentPhaseString(),
+                            bullWins: 0,
+                            bearWins: 0,
+                            neutralWins: 0,
+                            goldWins: 0,
+                            btcWins: 0,
+                            nasdaqWins: 0,
+                            dowWins: 0,
+                    top3Finishes: 0,
+                    championships: 0,
+                            participations: 0,
+                            streak: 0,
+                            maxStreak: 0,
+                            lossStreak: 0,
+                            maxLossStreak: 0,
+                            totalLikesReceived: 0,
+                            claimedAchievements: [],
+                            registeredAt: Date.now()
+                        });
+                        showToast("註冊成功！已同步至 Firebase 雲端！", "success");
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, pass);
+                        showToast("登入成功！數據同步完畢！", "success");
+                    }
+                    document.getElementById('authModal').classList.add('hidden');
+                    await loadSession();
+                } catch (err) {
+                    errBox.innerText = `⚠️ 錯誤: ${err.message}`;
+                    errBox.classList.remove('hidden');
+                }
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                if (state.activeAuthTab === 'register') {
+                    if (dbLocal[email]) {
+                        errBox.innerText = "⚠️ 該信箱帳號已存在！";
+                        errBox.classList.remove('hidden');
+                        return;
+                    }
+                    if (!nickname) {
+                        errBox.innerText = "⚠️ 註冊必須填寫玩家暱稱！";
+                        errBox.classList.remove('hidden');
+                        return;
+                    }
+                    dbLocal[email] = {
+                        account: email,
+                        nickname: nickname,
+                        email: email,
+                        score: 0,
+                        phaseScore: 0,
+                        wins: 0,
+                        losses: 0,
+                        phaseWins: 0,
+                        phaseLosses: 0,
+                        currentPhase: getCurrentPhaseString(),
+                        bullWins: 0,
+                        bearWins: 0,
+                        neutralWins: 0,
+                        goldWins: 0,
+                        btcWins: 0,
+                        nasdaqWins: 0,
+                        dowWins: 0,
+                    top3Finishes: 0,
+                    championships: 0,
+                        participations: 0,
+                        streak: 0,
+                        maxStreak: 0,
+                        lossStreak: 0,
+                        maxLossStreak: 0,
+                        totalLikesReceived: 0,
+                        claimedAchievements: [],
+                        registeredAt: Date.now()
+                    };
+                    localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                    localStorage.setItem('tq_logged_session', email);
+                    showToast("註冊成功！(已儲存至本機快取)", "success");
+                } else {
+                    const user = dbLocal[email];
+                    if (!user || user.account !== email) {
+                        errBox.innerText = "⚠️ 帳號或密碼輸入錯誤！";
+                        errBox.classList.remove('hidden');
+                        return;
+                    }
+                    localStorage.setItem('tq_logged_session', email);
+                    showToast("登入成功！歡迎回來！", "success");
+                }
+                document.getElementById('authModal').classList.add('hidden');
+                await loadSession();
+                renderLeaderboard();
+            }
+        }
+
+        async function logout() {
+            if (isFirebaseActive) {
+                await signOut(auth);
+                state.currentUser = null;
+                document.getElementById('guest-buttons').classList.remove('hidden');
+                document.getElementById('user-profile-widget').classList.add('hidden');
+                toggleProfilePanel();
+                showToast("已成功登出雲端帳號！", "info");
+                // Reset anonymous session
+                await signInAnonymously(auth);
+            } else {
+                localStorage.removeItem('tq_logged_session');
+                state.currentUser = null;
+                document.getElementById('guest-buttons').classList.remove('hidden');
+                document.getElementById('user-profile-widget').classList.add('hidden');
+                toggleProfilePanel();
+                showToast("已成功登出本地儲存！", "info");
+            }
+            renderLeaderboard();
+        }
+
+        // Exposing global interactive actions (Rule 2 compatibility)
+        window.openAchievementsModal = openAchievementsModal;
+        window.filterAchievements = filterAchievements;
+        window.claimAchievement = claimAchievement;
+        window.openAuthModal = openAuthModal;
+        window.switchAuthTab = switchAuthTab;
+        window.handleAuthSubmit = handleAuthSubmit;
+        window.logout = logout;
+        window.toggleProfilePanel = toggleProfilePanel;
+        window.selectPeriod = selectPeriod;
+        window.goNextQuestion = goNextQuestion;
+        window.switchTimeframe = switchTimeframe;
+        window.handleVote = handleVote;
+        window.adminRetest = adminRetest;
+        window.postComment = postComment;
+        window.submitVoteComment = submitVoteComment;
+        window.skipVoteComment = skipVoteComment;
+        window.likeComment = likeComment;
+        window.switchLeaderboardMode = switchLeaderboardMode;
+        window.togglePlayerCountVisibility = togglePlayerCountVisibility;
+        window.openPlayerManager = openPlayerManager;
+        window.closePlayerManager = closePlayerManager;
+        window.deleteUserAccount = deleteUserAccount;
+        window.switchPage = switchPage;
+        window.openAnnouncementEditor = openAnnouncementEditor;
+        window.closeAnnouncementModal = closeAnnouncementModal;
+        window.saveAnnouncement = saveAnnouncement;
+        window.deleteAnnouncement = deleteAnnouncement;
+        window.togglePinAnnouncement = togglePinAnnouncement;
+        window.submitForumPost = submitForumPost;
+        window.submitForumReply = submitForumReply;
+        window.openThread = openThread;
+        window.closeThread = closeThread;
+        window.deleteForumPost = deleteForumPost;
+        window.deleteForumReply = deleteForumReply;
+
+    </script>
+</body>
+</html>
