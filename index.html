@@ -599,6 +599,10 @@
                 <div id="auth-error-msg" class="hidden p-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold"></div>
 
                 <button type="submit" class="w-full py-3 bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md hover:from-brand-700 hover:to-indigo-700 transition">確定送出</button>
+
+                <button type="button" id="forgot-pw-btn" onclick="handleForgotPassword()" class="w-full text-center text-xs text-slate-400 hover:text-indigo-600 font-bold pt-1 transition">
+                    <i class="fa-solid fa-envelope-open-text mr-1"></i>忘記密碼？寄送重設信到我的信箱
+                </button>
             </form>
 
             <button onclick="document.getElementById('authModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times"></i></button>
@@ -630,7 +634,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, onSnapshot, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const fallbackConfig = {
@@ -1273,6 +1277,7 @@
                     reveal15m: entry.data.reveal15m || [],
                     reveal1h: entry.data.reveal1h || [],
                     sourceTime: entry.data.sourceTime || '',
+                    threshold: entry.data.threshold,
                 };
             }
             return entry.answer;   // 可能為 null(尚未作答)
@@ -1757,7 +1762,13 @@
             let moveText, moveCls;
             if (answer === 'bull') { moveText = `📈 15分K隨後向上拉升！漲幅 +${pct.toFixed(2)}%`; moveCls = 'text-emerald-700'; }
             else if (answer === 'bear') { moveText = `📉 15分K隨後走弱下跌！跌幅 ${pct.toFixed(2)}%`; moveCls = 'text-rose-700'; }
-            else if (answer === 'neutral') { moveText = `⚖️ 15分K呈現橫盤震盪！變動幅度極小 ${pct.toFixed(2)}%`; moveCls = 'text-slate-700'; }
+            else if (answer === 'neutral') {
+                const th = (bundle && bundle.threshold) ? Number(bundle.threshold) : null;
+                moveText = th
+                    ? `⚖️ 未觸及 ±${th}% 的方向門檻（實際 ${pct.toFixed(2)}%）→ 判定為盤整`
+                    : `⚖️ 15分K呈現橫盤震盪！變動幅度極小 ${pct.toFixed(2)}%`;
+                moveCls = 'text-slate-700';
+            }
             else { moveText = '⏳ 答案讀取中，請稍候…'; moveCls = 'text-slate-500'; }
 
             if (entry.myVote) {
@@ -2727,10 +2738,48 @@
                 tabL.className = "flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600";
                 tabR.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600";
                 regFields.classList.add('hidden');
+                document.getElementById('forgot-pw-btn').classList.remove('hidden');
             } else {
                 tabL.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600";
                 tabR.className = "flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600";
                 regFields.classList.remove('hidden');
+                document.getElementById('forgot-pw-btn').classList.add('hidden');
+            }
+        }
+
+        // 忘記密碼:由 Firebase 直接寄送重設連結到玩家信箱
+        async function handleForgotPassword() {
+            const errBox = document.getElementById('auth-error-msg');
+            errBox.classList.add('hidden');
+
+            if (!isFirebaseActive) { showToast('目前無法連上雲端伺服器,請稍後再試!', 'error'); return; }
+
+            const email = document.getElementById('auth-account').value.trim();
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(email)) {
+                errBox.innerText = "⚠️ 請先在上方輸入你的註冊信箱,再點「忘記密碼」";
+                errBox.classList.remove('hidden');
+                document.getElementById('auth-account').focus();
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                document.getElementById('authModal').classList.add('hidden');
+                showToast('📧 重設密碼信已寄出!請到信箱收信(記得看垃圾郵件匣)', 'success');
+            } catch (err) {
+                console.error('寄送重設信失敗', err);
+                if (err.code === 'auth/invalid-email') {
+                    errBox.innerText = "⚠️ 信箱格式不正確,請重新確認";
+                    errBox.classList.remove('hidden');
+                } else if (err.code === 'auth/too-many-requests') {
+                    errBox.innerText = "⚠️ 嘗試次數過多,請稍後再試";
+                    errBox.classList.remove('hidden');
+                } else {
+                    // 為保護隱私,Firebase 不會透露信箱是否存在,統一提示已寄出
+                    document.getElementById('authModal').classList.add('hidden');
+                    showToast('📧 若該信箱已註冊,重設信件已寄出,請到信箱收信', 'info');
+                }
             }
         }
 
@@ -2891,6 +2940,7 @@
         window.openAuthModal = openAuthModal;
         window.switchAuthTab = switchAuthTab;
         window.handleAuthSubmit = handleAuthSubmit;
+        window.handleForgotPassword = handleForgotPassword;
         window.logout = logout;
         window.toggleProfilePanel = toggleProfilePanel;
         window.selectPeriod = selectPeriod;
