@@ -335,6 +335,9 @@
                             <div>
                                 <span id="challenge-time" class="text-xs text-brand-600 font-bold block">12:00 盤勢挑戰</span>
                                 <span id="challenge-symbol" class="font-black text-slate-800 text-lg">黃金現貨 (XAU/USD)</span>
+                                <span id="session-badge" class="hidden mt-1 w-fit items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                    <i class="fa-regular fa-clock"></i><span id="session-badge-text"></span>
+                                </span>
                             </div>
                         </div>
                         
@@ -1645,6 +1648,22 @@
             const md = `${new Date().getMonth() + 1}/${new Date().getDate()}`;
             document.getElementById('challenge-time').innerText = `${md} 盤勢挑戰（${slotNum(slot)}/${DAILY_COUNT}）`;
             document.getElementById('challenge-symbol').innerText = (data && data.name) ? data.name : `第 ${slotNum(slot)} 題`;
+
+            // 決策點的「台北時間時刻 + 盤別」:出題當下就公開(只有時分,不含日期)
+            const sBadge = document.getElementById('session-badge');
+            const sText = document.getElementById('session-badge-text');
+            if (sBadge && sText) {
+                const hh = data && data.sourceHour ? data.sourceHour : '';
+                const sess = data && data.sessionLabel ? data.sessionLabel : '';
+                if (hh) {
+                    sText.innerText = `決策點 台北時間 ${hh}${sess ? ` · ${sess}` : ''}`;
+                    sBadge.classList.remove('hidden');
+                    sBadge.classList.add('inline-flex');
+                } else {
+                    sBadge.classList.add('hidden');
+                    sBadge.classList.remove('inline-flex');
+                }
+            }
 
             // ---- 尚未出題 / 離線 ----
             if (!data) {
