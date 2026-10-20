@@ -88,6 +88,17 @@
         <span id="firebase-status-text">正在偵測雲端連線狀態...</span>
     </div>
 
+    <!-- 常駐導流橫幅:公告彈窗關掉後,新遊戲入口仍然找得到 -->
+    <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[11px] font-bold text-center py-1.5 px-4 flex flex-wrap justify-center items-center gap-x-2 gap-y-0.5">
+        <button onclick="openSunsetModal()" class="hover:underline underline-offset-2">
+            <i class="fa-solid fa-bullhorn mr-1"></i>TrendQuest 已停止更新每日題目
+        </button>
+        <span class="opacity-50 hidden sm:inline">·</span>
+        <a href="https://chan37cc.github.io/Gates-of-Ordeal/" target="_blank" rel="noopener" class="underline underline-offset-2 hover:opacity-80">
+            新遊戲《破局紀元：試煉之門》開放中 →
+        </a>
+    </div>
+
     <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80">
         <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-16 py-2.5 sm:py-0 gap-2.5 sm:gap-0">
             <div class="flex items-center space-x-3">
@@ -628,6 +639,49 @@
         </div>
     </div>
 
+    <!-- 營運公告:TrendQuest 階段性結束,導流至新遊戲 -->
+    <div id="sunsetModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl relative border overflow-hidden max-h-[90vh] flex flex-col">
+            <button onclick="closeSunsetModal()" class="absolute top-4 right-4 text-white/70 hover:text-white z-10"><i class="fa-solid fa-times"></i></button>
+
+            <div class="bg-gradient-to-br from-brand-600 via-indigo-600 to-purple-600 px-6 pt-7 pb-6 text-white shrink-0">
+                <span class="inline-block text-[10px] font-black tracking-[0.2em] bg-white/20 px-2.5 py-1 rounded-full mb-3">營運公告</span>
+                <h3 class="font-black text-xl leading-snug">嗨！我是 CC！</h3>
+            </div>
+
+            <div class="px-6 py-5 overflow-y-auto space-y-4 text-[13px] text-slate-600 leading-relaxed">
+                <p>感謝你在 TrendQuest 遊玩的每一天～<br>希望這裡真的有對你帶來幫助！</p>
+
+                <p>TrendQuest 已經完成階段性任務，<span class="font-bold text-slate-800">即日起就不再更新每日題目囉！</span></p>
+
+                <p>這段時間我花了一些時間反思，並重新製作成了一款更完整的作品——</p>
+
+                <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3.5 text-center">
+                    <div class="font-black text-base text-slate-800">破局紀元：試煉之門</div>
+                    <div class="text-[11px] font-bold text-indigo-500 tracking-wide mt-0.5">The Breakthrough — Gates of Ordeal</div>
+                </div>
+
+                <p>一樣是<span class="font-bold text-slate-800">真實歷史行情</span>、一樣要判斷多空，但這次多了闖關、資金、風控還有一些輔助工具！</p>
+
+                <p>接下來也會陸續加入<span class="font-bold text-slate-800">知識型的內容</span>(還在努力中&gt;&lt;)，以及一些更有趣的元素！</p>
+
+                <p>希望不只是猜方向，而是真的能從每一關裡帶走一點東西，讓「每天練一下盤感」變成一件有動力持續下去的事。</p>
+
+                <p class="text-slate-400">真心希望能在新戰場見到你～～ 👋</p>
+            </div>
+
+            <div class="px-6 pb-6 pt-1 space-y-2 shrink-0">
+                <a href="https://chan37cc.github.io/Gates-of-Ordeal/" target="_blank" rel="noopener"
+                   class="block w-full py-3.5 text-center bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-black rounded-xl text-sm shadow-lg hover:from-brand-700 hover:to-indigo-700 transition">
+                    前往新遊戲 <i class="fa-solid fa-arrow-right ml-1"></i>
+                </a>
+                <button onclick="closeSunsetModal()" class="w-full py-2 text-center text-xs font-bold text-slate-400 hover:text-slate-600 transition">
+                    我再逛逛舊版
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
         <div class="glass-panel text-xs font-bold px-6 py-3.5 rounded-2xl shadow-xl flex items-center space-x-2 border-l-4 border-indigo-500 bg-white">
             <span id="toast-icon" class="text-indigo-500"><i class="fa-solid fa-bell"></i></span>
@@ -805,7 +859,28 @@
             { name: "理智多頭", score: 2200, phaseScore: 350, title: "實盤入門者", streak: 3 }
         ];
 
+        // ===== 營運公告:TrendQuest 階段性結束,導流至新遊戲 =====
+        const SUNSET_KEY = 'tq_sunset_seen_v1';
+
+        function openSunsetModal() {
+            document.getElementById('sunsetModal').classList.remove('hidden');
+        }
+
+        function closeSunsetModal() {
+            document.getElementById('sunsetModal').classList.add('hidden');
+            try { localStorage.setItem(SUNSET_KEY, String(Date.now())); } catch (e) {}
+        }
+
+        // 24 小時內看過就不再自動跳(頂端橫幅仍然常駐,隨時點得回來)
+        function maybeShowSunsetModal() {
+            let last = 0;
+            try { last = Number(localStorage.getItem(SUNSET_KEY) || 0); } catch (e) {}
+            if (Date.now() - last < 24 * 60 * 60 * 1000) return;
+            setTimeout(openSunsetModal, 600);
+        }
+
         window.onload = function() {
+            maybeShowSunsetModal();
             state.currentPeriod = 'q1';
             initFirebaseEngine();
             checkPhaseRollover();
@@ -2988,6 +3063,8 @@
         window.submitForumReply = submitForumReply;
         window.openThread = openThread;
         window.closeThread = closeThread;
+        window.openSunsetModal = openSunsetModal;
+        window.closeSunsetModal = closeSunsetModal;
         window.deleteForumPost = deleteForumPost;
         window.deleteForumReply = deleteForumReply;
 
